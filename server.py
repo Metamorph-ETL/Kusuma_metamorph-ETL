@@ -1,37 +1,37 @@
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import os
-
+from pathlib import Path
 
 # Create a FastAPI instance
 app = FastAPI()
 
-# CSV File Path 
-CSV_FILE_PATH = "C:/ETL pipeline project/CSV_FILE_PATH"  
+# Define the directory path containing CSV files
+CSV_PATH_FILE = Path("D:/ETL_pipeline_project/CSV_FILE_PATH/")
 
 # Define the Product model
-class products(BaseModel):
-    Product_ID: int
-    Product_Name: str
-    Category: str
-    Price: float
-    Stock_Quantity: int
-    Reorder_Level: int
-    Supplier_ID: int
+class Product(BaseModel):
+    product_ID: int
+    product_name: str
+    category: str
+    price: float
+    stock_quantity: int
+    reorder_level: int
+    supplier_id: int
 
 @app.get("/products")
 def get_products_from_csv():
-    # Checking if file exists
-    if not os.path.exists(CSV_FILE_PATH):
-        raise HTTPException(status_code=400, detail="CSV file not found")
+    # Find all CSV files matching the pattern "products*.csv" 
+    csv_files = list(CSV_PATH_FILE.glob("products*.csv")) 
+    if not csv_files:
+        raise HTTPException(status_code=404, detail="No matching CSV files found")
     
-    # Read CSV into a DataFrame
-    df = pd.read_csv(CSV_FILE_PATH)
+    # Read the latest matching CSV file
+    latest_csv = max(csv_files, key=lambda f: Path(f).stat().st_mtime)  # Get the most recently modified file
+    df = pd.read_csv(latest_csv)
 
-    # Check if the DataFrame is empty
     if df.empty:
-        raise HTTPException(status_code=400, detail="No products found in the CSV file")
+        raise HTTPException(status_code=404, detail="No products found in the CSV file")
 
     # Convert DataFrame to a list of dictionaries
     products_list = df.to_dict(orient="records")
