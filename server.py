@@ -65,7 +65,7 @@ def get_customers_from_csv():
     if not csv_files:
         raise HTTPException(status_code=404, detail="No matching CSV files found")
     
-    # Sort and get the latest modified file
+    # Read the latest matching CSV file
     latest_csv =max(csv_files, key=lambda f:  Path(f).stat().st_mtime)  # Get the most recently modified file
     df = pd.read_csv(latest_csv)
 
@@ -100,7 +100,7 @@ def get_suppliers_from_csv():
     if not csv_files:
         raise HTTPException(status_code=404, detail="No matching CSV files found")
     
-    # Sort and get the latest modified file
+    # Read the latest matching CSV file
     latest_csv=max(csv_files, key=lambda f: Path(f).stat().st_mtime)
     df = pd.read_csv(latest_csv)
 
