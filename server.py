@@ -80,7 +80,7 @@ def get_customers_from_csv():
     missing_columns = required_columns - set(df.columns)
 
     if missing_columns:
-        raise HTTPException(status_code=400, detail=f"CSV file is missing required columns: {missing_columns}")
+        raise HTTPException(status_code=404, detail=f"CSV file is missing required columns: {missing_columns}")
 
     if df.empty:
         raise HTTPException(status_code=404, detail="No customers found in the CSV file")
