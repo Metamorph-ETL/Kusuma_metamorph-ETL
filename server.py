@@ -18,7 +18,7 @@ class Product(BaseModel):
     stock_quantity: int
     reorder_level: int
     supplier_id: int
-Customers_and_Suppliers_API
+
 # Define the Customer model
 class Customer(BaseModel):
     customer_ID: int
@@ -34,7 +34,7 @@ class Supplier(BaseModel):
     supplier_name: str
     contact_details: str
     region: str
- main
+ 
 
 @app.get("/products")
 def get_products_from_csv():
@@ -58,7 +58,7 @@ def get_products_from_csv():
         "products": products_list
     }
 
-Customers_and_Suppliers_API
+
 @app.get("/customers")
 def get_customers_from_csv():
     # Find all CSV files matching "customers*.csv"
@@ -117,4 +117,4 @@ def get_suppliers_from_csv():
         "suppliers": suppliers_list
     }
 
-main
+
