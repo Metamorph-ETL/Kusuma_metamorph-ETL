@@ -1,2 +1,41 @@
 venv/ 
-__pycache__/ 
+# Virtual environment and Python cache
+__pycache__/
+*.py[cod]
+
+# Local virtual env (if you use one)
+venv/
+
+# Environment and local config
+.env
+*.env
+airflow_settings.yaml
+
+# Astro-related
+.astro/
+
+# Docker build artifacts
+.dockerignore
+
+# Logs or local state files
+*.log
+netstat
+.DS_Store
+Thumbs.db
+
+# Ignore git and netstat dump if not needed
+.git/
+.gitignore
+netstat
+
+# Ignore README
+README.md
+
+# Dependency/package files
+packages.txt
+
+# Optional: ignore these folders if they are auto-generated
+retrograde-rotation/
+include/
+!ETL-Airflow/dags/
+
