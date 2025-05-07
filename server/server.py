@@ -1,119 +1,94 @@
-import pandas as pd
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, EmailStr
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
 from pathlib import Path
-# Create a FastAPI instance
+import pandas as pd
+
+# Create app
 app = FastAPI()
 
+# Secret key and algo
+SECRET_KEY = "Project-Metamorph"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# OAuth2PasswordBearer instance
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 # Define the directory path containing CSV files
-CSV_PATH_FILE = Path("D:/ETL_pipeline_project/CSV_FILE_PATH/")
+CSV_PATH_FILE = Path("D:/ETL_pipeline_project/CSV_FILE_PATH")
+# user
+user = {
+    "username": "admin",
+    "password": "admin"
+}
 
-# Define the Product model
-class Product(BaseModel):
-    product_ID: int
-    product_name: str
-    category: str
-    price: float
-    stock_quantity: int
-    reorder_level: int
-    supplier_id: int
+# Function to create JWT token
+def create_access_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
-# Define the Customer model
-class Customer(BaseModel):
-    customer_ID: int
-    name: str
-    city: str
-    email: EmailStr
-    phone_number: str
-    loyality_tier:str
-
-# Define the Supplier model
-class Supplier(BaseModel):
-    supplier_ID: int
-    supplier_name: str
-    contact_details: str
-    region: str
- 
-
-@app.get("/products")
-def get_products_from_csv():
-    # Find all CSV files matching the pattern "products*.csv" 
-    csv_files = list(CSV_PATH_FILE.glob("products*.csv")) 
-    if not csv_files:
-        raise HTTPException(status_code=404, detail="No matching CSV files found")
+# Login endpoint (/token)
+@app.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    if form_data.username != user["username"] or form_data.password != user["password"]:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password"
+        )
     
-    # Read the latest matching CSV file
-    latest_csv = max(csv_files, key=lambda f: Path(f).stat().st_mtime)  # Get the most recently modified file
-    df = pd.read_csv(latest_csv)
-
-    if df.empty:
-        raise HTTPException(status_code=404, detail="No products found in the CSV file")
-
-    # Convert DataFrame to a list of dictionaries
-    products_list = df.to_dict(orient="records")
-
-    return {
-        "status": 200,
-        "products": products_list
-    }
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": form_data.username},
+        expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/customers")
-def get_customers_from_csv():
-    # Find all CSV files matching "customers*.csv"
+@app.get("/v1/customers")
+async def read_customers(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+ # Find all CSV files matching "customers*.csv" in the specified folder
     csv_files = list(CSV_PATH_FILE.glob("customers*.csv"))
     
     if not csv_files:
         raise HTTPException(status_code=404, detail="No matching CSV files found")
     
-    # Read the latest matching CSV file
-    latest_csv =max(csv_files, key=lambda f:  Path(f).stat().st_mtime)  # Get the most recently modified file
+    # Read the most recently modified CSV file
+    latest_csv = max(csv_files, key=lambda f: f.stat().st_mtime)  # Get the most recently modified file
     df = pd.read_csv(latest_csv)
-
-    # Drop "Loyalty_Tier" column if it exists
+    # Drop the "Loyalty_Tier" column if it exists
     if "loyalty_tier" in df.columns:
         df.drop(columns=["loyalty_tier"], inplace=True)
 
-    # Ensure the required columns exist
+    # Ensure the CSV contains the required columns
     required_columns = {"customer_id", "name", "city", "email", "phone_number"}
     if not required_columns.issubset(df.columns):
         raise HTTPException(status_code=404, detail="CSV file is missing required columns")
+    
     missing_columns = required_columns - set(df.columns)
-
     if missing_columns:
         raise HTTPException(status_code=404, detail=f"CSV file is missing required columns: {missing_columns}")
 
     if df.empty:
         raise HTTPException(status_code=404, detail="No customers found in the CSV file")
 
-    # Convert DataFrame to a list of dictionaries
+    # Convert DataFrame to a list of dictionaries (one for each row)
     customers_list = df.to_dict(orient="records")
 
     return {
         "status": 200,
         "customers": customers_list
     }
-
-@app.get("/suppliers")
-def get_suppliers_from_csv():
-    # Find all CSV files matching "suppliers*.csv"
-    csv_files = list(CSV_PATH_FILE.glob("suppliers*.csv"))
-    if not csv_files:
-        raise HTTPException(status_code=404, detail="No matching CSV files found")
-    
-    # Read the latest matching CSV file
-    latest_csv=max(csv_files, key=lambda f: Path(f).stat().st_mtime)
-    df = pd.read_csv(latest_csv)
-
-    if df.empty:
-        raise HTTPException(status_code=404, detail="No suppliers found in the CSV file")
-
-    # Convert DataFrame to a list of dictionaries
-    suppliers_list = df.to_dict(orient="records")
-
-    return {
-        "status": 200,
-        "suppliers": suppliers_list
-    }
-
-

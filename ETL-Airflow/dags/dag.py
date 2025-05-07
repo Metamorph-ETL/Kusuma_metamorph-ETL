@@ -4,6 +4,12 @@ from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 import requests
+import logging
+from airflow.hooks.base import BaseHook
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 default_args = {
     'owner': 'airflow',
@@ -11,17 +17,27 @@ default_args = {
     'retries': 1,
 }
 
+def get_postgres_credentials():
+    conn = BaseHook.get_connection('pg_conn_metamorph')
+    return conn.login, conn.password, conn.host, conn.port  # Removed schema
+
 with DAG(
     dag_id='usa_population_etl_taskflow',
     default_args=default_args,
     schedule_interval='@daily',
     catchup=False,
     description='ETL DAG using TaskFlow API with Spark and PostgreSQL',
-    tags=['etl', 'spark']
+    tags=['etl', 'spark'],
 ) as dag:
 
     @task()
-    def run_etl():
+    def load_data():
+        # Get Postgres credentials inside the task
+        pg_user, pg_password, pg_host, pg_port = get_postgres_credentials()
+
+        # Hardcode database name as 'data_usa'
+        jdbc_url = f"jdbc:postgresql://{pg_host}:{pg_port}/data_usa"
+
         # Step 1: Start Spark session
         spark = SparkSession.builder \
             .appName("DataUSA_ETL") \
@@ -30,8 +46,7 @@ with DAG(
             .getOrCreate()
 
         spark.sparkContext.setLogLevel("INFO")
-
-        print("Spark session started.")
+        log.info("Spark session started.")
 
         # Step 2: Extract from API
         url = "https://datausa.io/api/data?drilldowns=Nation&measures=Population"
@@ -39,12 +54,12 @@ with DAG(
             response = requests.get(url)
             response.raise_for_status()
             data_list = response.json()["data"]
-            print(f"Retrieved {len(data_list)} records from API.")
+            log.info(f"Retrieved {len(data_list)} records from API.")
         except Exception as e:
-            print("Failed to fetch data from API:", e)
-            return
+            log.error("Failed to fetch data from API", exc_info=True)
+            raise
 
-        # Step 3: Define schema & convert to Spark DataFrame
+        # Step 3: Define schema & create DataFrame
         schema = StructType([
             StructField("id_nation", StringType(), True),
             StructField("nation", StringType(), True),
@@ -54,7 +69,6 @@ with DAG(
             StructField("slug_nation", StringType(), True)
         ])
 
-        # Convert raw API data to list of tuples matching the schema
         rows = [
             (
                 row["ID Nation"],
@@ -67,17 +81,15 @@ with DAG(
         ]
 
         spark_df = spark.createDataFrame(rows, schema=schema)
-
-        print(" DataFrame schema:")
+        log.info("DataFrame created successfully.")
         spark_df.printSchema()
-        print(f"Total rows in DataFrame: {spark_df.count()}")
+        log.info(f"Total rows in DataFrame: {spark_df.count()}")
         spark_df.show(truncate=False)
 
         # Step 4: Load to PostgreSQL
-        jdbc_url = "jdbc:postgresql://host.docker.internal:5432/data_usa"
         properties = {
-            "user": "postgres",
-            "password": "ksl2003*",
+            "user": pg_user,
+            "password": pg_password,
             "driver": "org.postgresql.Driver"
         }
 
@@ -88,8 +100,10 @@ with DAG(
                 mode="overwrite",
                 properties=properties
             )
-            print(" Data written to PostgreSQL successfully!")
+            log.info("Data written to PostgreSQL successfully!")
         except Exception as e:
-            print(" Failed to write to PostgreSQL:", e)
+            log.error("Failed to write to PostgreSQL", exc_info=True)
+            raise
 
-    run_etl()
+    # Call the task
+    load_data()
