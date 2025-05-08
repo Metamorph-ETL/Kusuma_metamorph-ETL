@@ -9,7 +9,7 @@ import pandas as pd
 app = FastAPI()
 
 # Secret key and algo
-SECRET_KEY = "Project-Metamorph"
+SECRET_KEY = "Project_Metamorph"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
