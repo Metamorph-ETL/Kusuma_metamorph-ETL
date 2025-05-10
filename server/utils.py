@@ -11,9 +11,6 @@ import os
 GCS_CREDENTIALS_PATH = ['D:/ETL_pipeline_project/.env']
 key_path = r"D:\ETL_pipeline_project\server\meta-morph-d-eng-pro-view-key.json"
 
-
-
-
 # Secret key and algo
 SECRET_KEY = "Project-Metamorph"
 ALGORITHM = "HS256"

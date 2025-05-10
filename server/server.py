@@ -51,7 +51,6 @@ def get_latest_file_from_gcs(file_keyword: str):
         blob_path = f"{today_str}/{file_keyword}_{today_str}.csv"
         blob = bucket.blob(blob_path)
 
-        
         if not blob.exists():
             raise HTTPException(status_code=404,detail=f"File {blob_path} not found in GCS.")
         return blob
