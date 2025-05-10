@@ -6,4 +6,4 @@ ETL-Airflow/*.env
 ETL-Airflow/airflow_settings.yaml
 .gitignore
 ETL-Airflow/include
-.env
+.env"server/meta-morph-d-eng-pro-view-key.json" 
