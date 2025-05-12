@@ -12,7 +12,7 @@ import os
 
 # key_Path 
 GCS_CREDENTIALS_PATH = ['.env']
-#key_path = r"meta-morph-d-eng-pro-view-key.json"
+key_path = r"meta-morph-d-eng-pro-view-key.json"
 
 # Secret key and algo
 ALGORITHM = "HS256"
