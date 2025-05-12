@@ -4,15 +4,17 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from typing import Optional
-from key import key_path
+from my_secrets import SECRET_KEY
+from my_secrets import PASSWORD
+
+#from key import key_path
 import os
 
 # key_Path 
-GCS_CREDENTIALS_PATH = ['D:/ETL_pipeline_project/.env']
-key_path = r"D:\ETL_pipeline_project\server\meta-morph-d-eng-pro-view-key.json"
+GCS_CREDENTIALS_PATH = ['.env']
+#key_path = r"meta-morph-d-eng-pro-view-key.json"
 
 # Secret key and algo
-SECRET_KEY = "Project-Metamorph"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -23,7 +25,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 user_db ={
 "admin":{
     "username": "admin",
-    "password": "admin",
+    "password": PASSWORD, 
     "disabled": False
     }
 }

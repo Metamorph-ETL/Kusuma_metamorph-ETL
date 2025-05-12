@@ -4,8 +4,9 @@ ETL-Airflow/.astro
 ETL-Airflow/tests
 ETL-Airflow/*.env
 ETL-Airflow/airflow_settings.yaml
-.gitignore
+**/.gitignore
 ETL-Airflow/include
 .env"server/meta-morph-d-eng-pro-view-key.json" 
 server/meta-morph-d-eng-pro-view-key.json
 "server/meta-morph-d-eng-pro-view-key.json" 
+server/my_secrets.py
