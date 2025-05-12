@@ -31,7 +31,7 @@ with DAG(
 ) as dag:
 
     @task()
-    def load_data():
+    def load_data_task():
         # Get Postgres credentials inside the task
         pg_user, pg_password, pg_host, pg_port = get_postgres_credentials()
 
@@ -79,7 +79,6 @@ with DAG(
                 row["Slug Nation"]
             ) for row in data_list
         ]
-
         spark_df = spark.createDataFrame(rows, schema=schema)
         log.info("DataFrame created successfully.")
         spark_df.printSchema()
@@ -106,4 +105,4 @@ with DAG(
             raise
 
     # Call the task
-    load_data()
+    load_data_task()
