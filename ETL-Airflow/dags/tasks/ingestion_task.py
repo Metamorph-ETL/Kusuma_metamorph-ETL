@@ -7,8 +7,6 @@ from pyspark.sql.functions import col
 log = logging.getLogger(__name__)
 
 def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False):
-
-    #Generic ETL ingestion function.
     try:
         log.info(f"Initializing Spark session for endpoint: {endpoint}...")
         spark = init_spark()
@@ -29,7 +27,7 @@ def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False)
 
         df_tgt = df.select(*[col(new_col) for new_col in column_renames.values()])
 
-        DuplicateValidator.validate_no_duplicates(df_tgt, key_columns=key_columns)
+        DuplicateValidator.validate_duplicates(df_tgt, key_columns=key_columns)
 
         log.info(f"Loading data into PostgreSQL table {target_table}...")
         load_to_postgres(df_tgt, target_table)
@@ -44,7 +42,6 @@ def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False)
     finally:
         spark.stop()
         log.info(f"Spark session for {endpoint} completed.")
-
 
 @task
 def ingest_suppliers():
@@ -92,3 +89,4 @@ def ingest_customers():
         key_columns=["CUSTOMER_ID"],
         auth=True
     )
+
