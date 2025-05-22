@@ -1,10 +1,10 @@
 from airflow.decorators import task
 from airflow.exceptions import AirflowException
-from transform_utils import init_spark, APIClient, load_to_postgres, DuplicateValidator
+from transform_utils import init_spark, APIClient, load_data_task, DuplicateValidator
 import logging
 from pyspark.sql.functions import col
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("ETL_logger")
 
 def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False):
     try:
@@ -30,7 +30,7 @@ def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False)
         DuplicateValidator.validate_duplicates(df_tgt, key_columns=key_columns)
 
         log.info(f"Loading data into PostgreSQL table {target_table}...")
-        load_to_postgres(df_tgt, target_table)
+        load_data_task(df_tgt, target_table)
 
         log.info(f"{endpoint} ETL process completed successfully.")
         return f"{endpoint} ETL process completed successfully."
