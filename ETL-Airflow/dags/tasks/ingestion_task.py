@@ -1,9 +1,17 @@
 from airflow.decorators import task
 from airflow.exceptions import AirflowException
-from transform_utils import init_spark, APIClient, load_data_task, DuplicateValidator
-import logging
 from pyspark.sql.functions import col
+import logging
 
+from transform_utils import (
+    init_spark,
+    APIClient,
+    load_data_task_from_df,  
+    DuplicateValidator
+)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 log = logging.getLogger("ETL_logger")
 
 def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False):
@@ -16,8 +24,8 @@ def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False)
         response = client.fetch_data(endpoint, auth=auth)
 
         data = response.get("data")
-        if not data:
-            raise AirflowException(f"No data received or missing 'data' key in response for {endpoint}.")
+        if not data or not isinstance(data, list):
+            raise AirflowException(f"No valid data received from {endpoint}.")
 
         log.info(f"Received {len(data)} records from {endpoint}.")
 
@@ -30,7 +38,7 @@ def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False)
         DuplicateValidator.validate_duplicates(df_tgt, key_columns=key_columns)
 
         log.info(f"Loading data into PostgreSQL table {target_table}...")
-        load_data_task(df_tgt, target_table)
+        load_data_task_from_df(df_tgt, target_table)  
 
         log.info(f"{endpoint} ETL process completed successfully.")
         return f"{endpoint} ETL process completed successfully."
@@ -40,11 +48,12 @@ def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False)
         raise AirflowException(f"ETL failed for {endpoint}: {str(e)}")
 
     finally:
-        spark.stop()
-        log.info(f"Spark session for {endpoint} completed.")
+        if 'spark' in locals():
+            spark.stop()
+            log.info(f"Spark session for {endpoint} stopped.")
 
-@task
-def ingest_suppliers():
+@task()
+def m_ingest_data_into_suppliers():
     return ingest_data(
         endpoint="v1/suppliers",
         column_renames={
@@ -57,8 +66,8 @@ def ingest_suppliers():
         key_columns=["SUPPLIER_ID"]
     )
 
-@task
-def ingest_products():
+@task()
+def m_ingest_data_into_products():
     return ingest_data(
         endpoint="v1/products",
         column_renames={
@@ -74,8 +83,8 @@ def ingest_products():
         key_columns=["PRODUCT_ID"]
     )
 
-@task
-def ingest_customers():
+@task()
+def m_ingest_data_into_customers():
     return ingest_data(
         endpoint="v1/customers",
         column_renames={
@@ -89,4 +98,3 @@ def ingest_customers():
         key_columns=["CUSTOMER_ID"],
         auth=True
     )
-

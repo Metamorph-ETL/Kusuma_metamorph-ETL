@@ -1,17 +1,20 @@
 from airflow.decorators import dag, task
 from datetime import datetime
-from tasks.ingestion_task import ingest_suppliers, ingest_customers, ingest_products
+from tasks.ingestion_task import (
+    m_ingest_data_into_suppliers,
+    m_ingest_data_into_products,
+    m_ingest_data_into_customers)
 
 @dag(
     dag_id="api_to_raw_ingestion_pipeline",
-    schedule_interval="@daily",
+    schedule_interval='@daily',
     start_date=datetime(2025, 1, 2),
     catchup=False,
-    tags=["etl", "api", "pyspark", "postgres"],
+    tags=["ETL"]
 )
-def etl_pipeline():
-    ingest_suppliers()
-    ingest_customers()
-    ingest_products()
+def etl_process():
+   supplier_task = m_ingest_data_into_suppliers()
+   product_task = m_ingest_data_into_products()
+   customer_task = m_ingest_data_into_customers()
 
-dag_instance = etl_pipeline()
+dag_instance = etl_process()
