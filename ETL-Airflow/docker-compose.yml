@@ -15,13 +15,11 @@ services:
     ports:
       - "8081:8081"
       - "7077:7077"
-      - "5432:5432"
     volumes:
       - spark-data:/bitnami
       - ./include:/usr/local/airflow/include
       - ./apps:/opt/spark-apps
       - ./data:/opt/spark-data
-      - ./dags:/opt/airflow/dags
       - ./jars:/usr/local/airflow/jars
     networks:
       - airflow
@@ -53,7 +51,3 @@ services:
 
 volumes:
   spark-data:
-
-networks:
-  airflow:
-    driver: bridge

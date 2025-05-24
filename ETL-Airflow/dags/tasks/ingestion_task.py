@@ -1,100 +1,143 @@
+from pyspark.sql.functions import count,col
 from airflow.decorators import task
 from airflow.exceptions import AirflowException
-from pyspark.sql.functions import col
-import logging
+from transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
+from secret_key import POSTGRES_PASSWORD
 
-from transform_utils import (
-    init_spark,
-    APIClient,
-    load_data_task_from_df,  
-    DuplicateValidator
-)
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-log = logging.getLogger("ETL_logger")
-
-def ingest_data(endpoint, column_renames, target_table, key_columns, auth=False):
+#create a task that ingests data into raw.suppliers table
+@task
+def m_ingest_data_into_suppliers():
     try:
-        log.info(f"Initializing Spark session for endpoint: {endpoint}...")
-        spark = init_spark()
+        spark = create_session()
 
-        log.info(f"Fetching data from API endpoint: {endpoint}...")
-        client = APIClient()
-        response = client.fetch_data(endpoint, auth=auth)
+        # Extract supplier data from API
+        extractor = Extractor("/v1/suppliers")
 
-        data = response.get("data")
-        if not data or not isinstance(data, list):
-            raise AirflowException(f"No valid data received from {endpoint}.")
+        data = extractor.extract_data()
+        
+         # Convert extracted JSON data to Spark DataFrame
+        suppliers_df = spark.createDataFrame(data)
 
-        log.info(f"Received {len(data)} records from {endpoint}.")
-
-        df = spark.createDataFrame(data)
-        for old_col, new_col in column_renames.items():
-            df = df.withColumnRenamed(old_col, new_col)
-
-        df_tgt = df.select(*[col(new_col) for new_col in column_renames.values()])
-
-        DuplicateValidator.validate_duplicates(df_tgt, key_columns=key_columns)
-
-        log.info(f"Loading data into PostgreSQL table {target_table}...")
-        load_data_task_from_df(df_tgt, target_table)  
-
-        log.info(f"{endpoint} ETL process completed successfully.")
-        return f"{endpoint} ETL process completed successfully."
-
+        # Rename columns
+        suppliers_df=suppliers_df \
+                            .withColumnRenamed("supplier_id", "SUPPLIER_ID") \
+                            .withColumnRenamed("supplier_name", "SUPPLIER_NAME") \
+                            .withColumnRenamed("contact_details", "CONTACT_DETAILS") \
+                            .withColumnRenamed("region", "REGION")
+            
+            
+        suppliers_df_tgt=suppliers_df \
+                            .select(
+                                col("SUPPLIER_ID"),
+                                col("SUPPLIER_NAME"),
+                                col("CONTACT_DETAILS"),
+                                col("REGION")
+                            )
+    
+        
+        # Check for duplicate SUPPLIER_IDs
+        checker=Duplicate_check()
+        checker.has_duplicates(suppliers_df_tgt, ["SUPPLIER_ID"])    
+        
+         # Load the cleaned data into the raw.suppliers table
+        load_to_postgres(suppliers_df_tgt, "raw.suppliers", "overwrite")
+        return "Task for loading Suppliers got completed successfully."
+     
     except Exception as e:
-        log.error(f"ETL failed for {endpoint}: {str(e)}")
-        raise AirflowException(f"ETL failed for {endpoint}: {str(e)}")
+        log.error(f"Suppliers ETL failed: {str(e)}", exc_info=True)
 
     finally:
-        if 'spark' in locals():
-            spark.stop()
-            log.info(f"Spark session for {endpoint} stopped.")
+        end_session(spark)
 
-@task()
-def m_ingest_data_into_suppliers():
-    return ingest_data(
-        endpoint="v1/suppliers",
-        column_renames={
-            "supplier_id": "SUPPLIER_ID",
-            "supplier_name": "SUPPLIER_NAME",
-            "contact_details": "CONTACT_DETAILS",
-            "region": "REGION"
-        },
-        target_table="raw.suppliers",
-        key_columns=["SUPPLIER_ID"]
-    )
-
-@task()
+#create a task that ingests data into raw.products table
+@task
 def m_ingest_data_into_products():
-    return ingest_data(
-        endpoint="v1/products",
-        column_renames={
-            "product_id": "PRODUCT_ID",
-            "product_name": "PRODUCT_NAME",
-            "category": "CATEGORY",
-            "price": "PRICE",
-            "stock_quantity": "STOCK_QUANTITY",
-            "reorder_level": "REORDER_LEVEL",
-            "supplier_id": "SUPPLIER_ID"
-        },
-        target_table="raw.products",
-        key_columns=["PRODUCT_ID"]
-    )
+    try:
+        spark = create_session()
+        
+        # Extract products data from API
+        extractor = Extractor("/v1/products")
 
-@task()
+        data = extractor.extract_data()
+         
+        # Convert extracted JSON data to Spark DataFrame
+        products_df = spark.createDataFrame(data)
+
+         # Rename columns
+        products_df=products_df \
+                        .withColumnRenamed("product_id", "PRODUCT_ID") \
+                        .withColumnRenamed("product_name", "PRODUCT_NAME") \
+                        .withColumnRenamed("category", "CATEGORY") \
+                        .withColumnRenamed("price", "PRICE") \
+                        .withColumnRenamed("stock_quantity", "STOCK_QUANTITY") \
+                        .withColumnRenamed("reorder_level", "REORDER_LEVEL") \
+                        .withColumnRenamed("supplier_id", "SUPPLIER_ID")
+            
+
+        products_df_tgt=products_df \
+                                .select(
+                                    col("PRODUCT_ID"),
+                                    col("PRODUCT_NAME"),
+                                    col("CATEGORY"),
+                                    col("PRICE"),
+                                    col("STOCK_QUANTITY"),
+                                    col("REORDER_LEVEL"),
+                                    col("SUPPLIER_ID")
+                                )
+
+        # Check for duplicate PRODUCT_IDs
+        checker=Duplicate_check()
+        checker.has_duplicates(products_df_tgt, ["PRODUCT_ID"])
+       
+         # Load the cleaned data into the raw.products table
+        load_to_postgres(products_df_tgt, "raw.products")
+
+        return "Task for loading products got completed successfully."
+
+    except Exception as e:
+        log.error(f"Products ETL failed: {str(e)}", exc_info=True)
+    
+
+    finally:
+        end_session(spark)
+
+#create a task that ingests data into raw.customers table
+@task
 def m_ingest_data_into_customers():
-    return ingest_data(
-        endpoint="v1/customers",
-        column_renames={
-            "customer_id": "CUSTOMER_ID",
-            "name": "NAME",
-            "city": "CITY",
-            "email": "EMAIL",
-            "phone_number": "PHONE_NUMBER"
-        },
-        target_table="raw.customers",
-        key_columns=["CUSTOMER_ID"],
-        auth=True
-    )
+    try:
+        spark = create_session()
+        extractor = Extractor("/v1/customers")
+        data = extractor.extract_data()
+        customers_df = spark.createDataFrame(data)
+
+        customers_df=customers_df \
+                        .withColumnRenamed("customer_id", "CUSTOMER_ID") \
+                        .withColumnRenamed("name", "NAME") \
+                        .withColumnRenamed("city", "CITY") \
+                        .withColumnRenamed("email", "EMAIL") \
+                        .withColumnRenamed("phone_number", "PHONE_NUMBER") 
+            
+        customers_df_tgt=customers_df \
+                            .select(
+                                col("CUSTOMER_ID"),
+                                col("NAME"),
+                                col("CITY"),
+                                col("EMAIL"),
+                                col("PHONE_NUMBER")
+                            )
+        
+        # Check for duplicate CUSTOMER_IDs
+        checker=Duplicate_check()
+        checker.has_duplicates(customers_df_tgt, ["CUSTOMER_ID"])
+
+         # Load the cleaned data into the raw.customers table
+        load_to_postgres(customers_df_tgt, "raw.customers")
+        return "Task for loading customers got completed successfully."
+
+    except Exception as e:
+        log.error(f"Customers ETL failed: {str(e)}", exc_info=True)
+    
+
+    finally:
+        end_session(spark)
+

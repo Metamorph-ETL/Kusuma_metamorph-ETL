@@ -1,91 +1,104 @@
-import logging
-import os
-import requests
-from airflow.exceptions import AirflowException
-from airflow.hooks.base import BaseHook
-from airflow.models import Variable
 from pyspark.sql import SparkSession
+import requests
+from secret_key import POSTGRES_PASSWORD
 from pyspark.sql.functions import count
+import logging
+from airflow.exceptions import AirflowException
+from secret_key import USERNAME,PASSWORD
+from pyspark.sql.functions import col
 
-log = logging.getLogger(__name__)
+# Initialize logger
+log = logging.getLogger("etl_logger")
+log.setLevel(logging.INFO)
 
-# --- Spark Initialization ---
-def init_spark(app_name="IngestionTask", jar_path="/opt/spark/jars/postgresql-42.7.3.jar"):
-    log.info("Initializing Spark session...")
-    spark = SparkSession.builder \
-        .appName(app_name) \
-        .config("spark.jars", jar_path) \
+#create and configure Spark session
+def create_session():
+    log.info("Initialising the spark Session")
+    spark = SparkSession.builder.appName("GCS_to_Postgres") \
+        .config("spark.jars", "ETL-Airflow\jars\postgresql-42.7.1.jar") \
         .getOrCreate()
-    log.info("Spark session initialized.")
+       
+    log.info("spark session created")
     return spark
 
-# --- API Client ---
-class APIClient:
-    def __init__(self, base_url="http://host.docker.internal:8000"):
-        self.base_url = base_url.rstrip('/')
-        self.session = requests.Session()
-        self.token = Variable.get("api_token", default_var="")
+#Extractor class handles API data extraction 
+class Extractor:
+    def __init__(self, endpoint, token=None):
+        self.base_url = "http://host.docker.internal:8000" 
+        self.url = f"{self.base_url}{endpoint}"
+        self.token = token
 
-    def fetch_data(self, endpoint, auth=False):
-        url = f"{self.base_url}/{endpoint.lstrip('/')}"
-        log.info(f"Making GET request to {url}")
+# Automatically fetch token if it's a customer API and no token is provided
+        if "customers" in endpoint and token is None:  
+            self.token = self._get_token()
 
+# Private method to fetch bearer token from TOKEN_URL
+    def _get_token(self):
+        token_url = f"{self.base_url}/token"
         try:
-            if auth or "customers" in endpoint.lower():
-                self.session.headers.update({"Authorization": f"Bearer {self.token}"})
+            response = requests.post(token_url, data={
+                "username": USERNAME,
+                "password": PASSWORD,  
+            })
+
+            if response.status_code == 200:
+                token = response.json().get("access_token")
+                return token
             else:
-                self.session.headers.pop("Authorization", None)
+                raise AirflowException(f"Failed to fetch token. Status: {response.status_code}")
+        except Exception as e:
+            log.error(f"Token fetch failed: {str(e)}", exc_info=True)
+      
+    def extract_data(self):
+        headers = {}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+  
+        response = requests.get(self.url, headers=headers)
+        if response.status_code == 200:
+            data = response.json().get("data", [])
+            log.info(f"Extracted {len(data)} records from {self.url}")
+            return data
+        else:
+            error_msg = f"Failed to fetch from {self.url}. Status: {response.status_code}"
+            log.error(error_msg)
+            raise AirflowException(error_msg)
 
-            response = self.session.get(url)
-            response.raise_for_status()
-            log.info(f"Data fetched successfully from {endpoint}")
-            return response.json()
+# Custom exception for duplicate detection
 
-        except requests.RequestException as e:
-            log.error(f"API request failed: {e}")
-            raise AirflowException(f"API request failed: {e}")
-
-# --- Custom Exceptions ---
 class DuplicateException(Exception):
-    def __init__(self, message="Duplicate data detected during validation."):
+    def __init__(self, message):
         super().__init__(message)
 
-# --- Duplicate Validator ---
-class DuplicateValidator:
+class Duplicate_check:
     @classmethod
-    def validate_duplicates(cls, dataframe, key_columns):
-        log.info("Running duplicate validation on input DataFrame...")
-        duplicates = dataframe.groupBy(key_columns).agg(count("*").alias("duplicate_count"))
-        count_duplicates = duplicates.filter(duplicates["duplicate_count"] > 1).count()
+    def has_duplicates(cls, df, primary_key_list):
+        log.info("Checking for duplicates in the given data")
+        grouped_df = df.groupBy(primary_key_list)\
+                      .agg(count('*').alias('cnt'))\
+                      .filter(col("cnt") > 1)
+        if grouped_df.count() > 0:
+            raise DuplicateException(f"Found duplicates in columns: {primary_key_list}")
+        log.info("No duplicates found")
 
-        if count_duplicates > 0:
-            log.error(f"Duplicate validation failed. {count_duplicates} duplicates found.")
-            raise DuplicateException(f"{count_duplicates} duplicates found.")
+    
+def load_to_postgres(df, table_name, mode="overwrite"):
+    jdbc_url = "jdbc:postgresql://host.docker.internal:5432/meta_morph"
+    properties = {
+        "user": "postgres",
+        "password": POSTGRES_PASSWORD,
+        "driver": "org.postgresql.Driver"
+    }
+    log.info(f"Loading data into PostgreSQL table: {table_name}") 
+    df.write \
+        .mode(mode) \
+        .jdbc(url=jdbc_url, table=table_name, properties=properties)
+    
+    log.info("Loaded data successfully")
+    return f"Task for loading data into {table_name} completed successfully"
 
-        log.info("No duplicates found. Validation passed.")
 
-# --- PostgreSQL Loader ---
-def load_postgres_credentials(conn_id='pg_conn_metamorph'):
-    conn = BaseHook.get_connection(conn_id)
-    return conn.login, conn.password, conn.host, conn.port, conn.schema or "meta_morph"
-
-def load_data_task_from_df(df, target_table, write_mode="overwrite"):
-    log.info(f"Starting write to PostgreSQL table: {target_table}")
-    pg_user, pg_password, pg_host, pg_port, pg_db = load_postgres_credentials()
-    jdbc_url = f"jdbc:postgresql://{pg_host}:{pg_port}/{pg_db}"
-
-    try:
-        df.write.jdbc(
-            url=jdbc_url,
-            table=target_table,
-            mode=write_mode,
-            properties={
-                "user": pg_user,
-                "password": pg_password,
-                "driver": "org.postgresql.Driver"
-            }
-        )
-        log.info(f"Data successfully loaded into PostgreSQL table '{target_table}'.")
-    except Exception as e:
-        log.error(f"Failed to write to PostgreSQL: {e}")
-        raise AirflowException(f"PostgreSQL load failed: {e}")
+def end_session(spark):
+        log.info("Stopping Spark session...")
+        spark.stop()
+        log.info("Spark session stopped.")

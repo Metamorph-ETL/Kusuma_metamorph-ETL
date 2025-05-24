@@ -1,4 +1,4 @@
-from airflow.decorators import dag, task
+from airflow.decorators import dag
 from datetime import datetime
 from tasks.ingestion_task import (
     m_ingest_data_into_suppliers,
