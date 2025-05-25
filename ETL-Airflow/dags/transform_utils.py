@@ -6,16 +6,20 @@ import logging
 from airflow.exceptions import AirflowException
 from secret_key import USERNAME,PASSWORD
 from pyspark.sql.functions import col
+import os
 
 # Initialize logger
 log = logging.getLogger("etl_logger")
 log.setLevel(logging.INFO)
 
-#create and configure Spark session
 def create_session():
     log.info("Initialising the spark Session")
+    
+    # Set JAVA_HOME environment variable explicitly
+    os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-17-openjdk-amd64"
+
     spark = SparkSession.builder.appName("GCS_to_Postgres") \
-        .config("spark.jars", "ETL-Airflow\jars\postgresql-42.7.1.jar") \
+        .config("spark.jars", "ETL-Airflow/jars/postgresql-42.7.1.jar") \
         .getOrCreate()
        
     log.info("spark session created")
@@ -85,9 +89,9 @@ class Duplicate_check:
 def load_to_postgres(df, table_name, mode="overwrite"):
     jdbc_url = "jdbc:postgresql://host.docker.internal:5432/meta_morph"
     properties = {
-        "user": "postgres",
-        "password": POSTGRES_PASSWORD,
-        "driver": "org.postgresql.Driver"
+        "user": str("postgres"),
+        "password":str (POSTGRES_PASSWORD),
+        "driver": str("org.postgresql.Driver")
     }
     log.info(f"Loading data into PostgreSQL table: {table_name}") 
     df.write \

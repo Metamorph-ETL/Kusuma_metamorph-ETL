@@ -33,6 +33,7 @@ def m_ingest_data_into_suppliers():
                                 col("CONTACT_DETAILS"),
                                 col("REGION")
                             )
+        suppliers_df_tgt.show()
     
         
         # Check for duplicate SUPPLIER_IDs
@@ -45,6 +46,7 @@ def m_ingest_data_into_suppliers():
      
     except Exception as e:
         log.error(f"Suppliers ETL failed: {str(e)}", exc_info=True)
+
 
     finally:
         end_session(spark)
