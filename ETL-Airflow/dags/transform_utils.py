@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 import requests
-from secret_key import POSTGRES_PASSWORD
+from secret_key import PG_PWD
 from pyspark.sql.functions import count
 import logging
 from airflow.exceptions import AirflowException
@@ -19,7 +19,7 @@ def create_session():
     os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-17-openjdk-amd64"
 
     spark = SparkSession.builder.appName("GCS_to_Postgres") \
-        .config("spark.jars", "ETL-Airflow/jars/postgresql-42.7.1.jar") \
+        .config("spark.jars", "/usr/local/airflow/jars/postgresql-42.7.1.jar") \
         .getOrCreate()
        
     log.info("spark session created")
@@ -86,17 +86,16 @@ class Duplicate_check:
         log.info("No duplicates found")
 
     
-def load_to_postgres(df, table_name, mode="overwrite"):
-    jdbc_url = "jdbc:postgresql://host.docker.internal:5432/meta_morph"
-    properties = {
-        "user": str("postgres"),
-        "password":str (POSTGRES_PASSWORD),
-        "driver": str("org.postgresql.Driver")
-    }
+def load_to_postgres(data_frame, table_name, mode="overwrite"):
     log.info(f"Loading data into PostgreSQL table: {table_name}") 
-    df.write \
-        .mode(mode) \
-        .jdbc(url=jdbc_url, table=table_name, properties=properties)
+    df = data_frame.write.format("jdbc")\
+            .option("url", "jdbc:postgresql://host.docker.internal:5432/meta_morph") \
+            .option("driver", "org.postgresql.Driver") \
+            .option("dbtable", f"{table_name}") \
+            .option("user", "postgres") \
+            .option("password", PG_PWD) \
+            .mode(mode) \
+                .save()
     
     log.info("Loaded data successfully")
     return f"Task for loading data into {table_name} completed successfully"

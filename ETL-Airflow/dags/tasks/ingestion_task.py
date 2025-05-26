@@ -2,7 +2,7 @@ from pyspark.sql.functions import count,col
 from airflow.decorators import task
 from airflow.exceptions import AirflowException
 from transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
-from secret_key import POSTGRES_PASSWORD
+import logging
 
 #create a task that ingests data into raw.suppliers table
 @task
@@ -33,9 +33,7 @@ def m_ingest_data_into_suppliers():
                                 col("CONTACT_DETAILS"),
                                 col("REGION")
                             )
-        suppliers_df_tgt.show()
-    
-        
+            
         # Check for duplicate SUPPLIER_IDs
         checker=Duplicate_check()
         checker.has_duplicates(suppliers_df_tgt, ["SUPPLIER_ID"])    
@@ -45,8 +43,9 @@ def m_ingest_data_into_suppliers():
         return "Task for loading Suppliers got completed successfully."
      
     except Exception as e:
-        log.error(f"Suppliers ETL failed: {str(e)}", exc_info=True)
-
+        logging.error(f"Suppliers ETL failed: {str(e)}", exc_info=True)
+        raise e 
+    
 
     finally:
         end_session(spark)
@@ -97,7 +96,8 @@ def m_ingest_data_into_products():
         return "Task for loading products got completed successfully."
 
     except Exception as e:
-        log.error(f"Products ETL failed: {str(e)}", exc_info=True)
+        logging.error(f"Products ETL failed: {str(e)}", exc_info=True)
+        raise e
     
 
     finally:
@@ -137,7 +137,8 @@ def m_ingest_data_into_customers():
         return "Task for loading customers got completed successfully."
 
     except Exception as e:
-        log.error(f"Customers ETL failed: {str(e)}", exc_info=True)
+        logging.error(f"Customers ETL failed: {str(e)}", exc_info=True)
+        raise e
     
 
     finally:
