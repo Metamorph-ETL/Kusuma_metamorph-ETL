@@ -1,5 +1,5 @@
 import io
-from datetime import datetime, timedelta
+from datetime import timedelta
 from google.cloud import storage
 from google.oauth2 import service_account
 import pandas as pd
