@@ -91,7 +91,7 @@ def m_ingest_data_into_products():
         checker.has_duplicates(products_df_tgt, ["PRODUCT_ID"])
        
          # Load the cleaned data into the raw.products table
-        load_to_postgres(products_df_tgt, "raw.products")
+        load_to_postgres(products_df_tgt, "raw.products", "overwrite")
 
         return "Task for loading products got completed successfully."
 
@@ -133,7 +133,7 @@ def m_ingest_data_into_customers():
         checker.has_duplicates(customers_df_tgt, ["CUSTOMER_ID"])
 
          # Load the cleaned data into the raw.customers table
-        load_to_postgres(customers_df_tgt, "raw.customers")
+        load_to_postgres(customers_df_tgt, "raw.customers", "overwrite")
         return "Task for loading customers got completed successfully."
 
     except Exception as e:

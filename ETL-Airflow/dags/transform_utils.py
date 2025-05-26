@@ -1,11 +1,9 @@
 from pyspark.sql import SparkSession
 import requests
-from secret_key import PG_PWD
-from pyspark.sql.functions import count
+from secret_key import PG_PWD, USERNAME,PASSWORD
 import logging
 from airflow.exceptions import AirflowException
-from secret_key import USERNAME,PASSWORD
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, count
 import os
 
 # Initialize logger
@@ -15,9 +13,6 @@ log.setLevel(logging.INFO)
 def create_session():
     log.info("Initialising the spark Session")
     
-    # Set JAVA_HOME environment variable explicitly
-    os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-17-openjdk-amd64"
-
     spark = SparkSession.builder.appName("GCS_to_Postgres") \
         .config("spark.jars", "/usr/local/airflow/jars/postgresql-42.7.1.jar") \
         .getOrCreate()
