@@ -12,7 +12,9 @@ RUN mkdir -p /usr/local/airflow/jars/ && \
     wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar -P /usr/local/airflow/jars/
 
 
-#RUN pip install /usr/local/airflow/jars/raptor-1.2.6-py3-none-any.whl --no-deps --force-reinstall
+# Install the Google Cloud Storage connector for spark
+RUN mkdir -p /usr/local/airflow/jars/ && wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar -P /usr/local/airflow/jars/
+
 
 # Set Java environment variables
 ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"

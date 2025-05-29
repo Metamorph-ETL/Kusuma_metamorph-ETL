@@ -1,8 +1,8 @@
 from pyspark.sql.functions import count,col
 from airflow.decorators import task
-from airflow.exceptions import AirflowException
 from transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
 import logging
+from datetime import datetime
 
 #create a task that ingests data into raw.suppliers table
 @task
