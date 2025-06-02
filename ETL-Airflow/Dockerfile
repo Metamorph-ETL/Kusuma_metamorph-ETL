@@ -11,16 +11,11 @@ RUN apt update && \
 RUN mkdir -p /usr/local/airflow/jars/ && \
     wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar -P /usr/local/airflow/jars/
 
-
-# Install the Google Cloud Storage connector for spark
-RUN mkdir -p /usr/local/airflow/jars/ && wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar -P /usr/local/airflow/jars/
-
-
 # Set Java environment variables
 ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# Set Google Cloud credentials (Make sure the key exists in the image)
-# ENV GOOGLE_APPLICATION_CREDENTIALS="/usr/local/airflow/jars/meta-morph-d-eng-pro-view-key.json"
+# Set path to credentials for GCS access
+ENV GCS_CREDENTIALS_PATH="/usr/local/airflow/jars/meta-morph-d-eng-pro-view-key.json"
 
 USER astro
