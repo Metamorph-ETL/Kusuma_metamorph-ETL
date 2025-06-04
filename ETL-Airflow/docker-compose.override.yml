@@ -17,8 +17,6 @@ services:
     ports:
       - "8081:8081"
       - "7077:7077"
-
-
     volumes:
       - spark-data:/bitnami
       - ./include:/usr/local/airflow/include
@@ -55,5 +53,3 @@ services:
 
 volumes:
   spark-data:
-
-  

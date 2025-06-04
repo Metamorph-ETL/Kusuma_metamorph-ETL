@@ -1,8 +1,8 @@
 from pyspark.sql.functions import count,col
 from airflow.decorators import task
-from airflow.exceptions import AirflowException
 from transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
 import logging
+from datetime import datetime
 
 #create a task that ingests data into raw.suppliers table
 @task
@@ -144,3 +144,62 @@ def m_ingest_data_into_customers():
     finally:
         end_session(spark)
 
+@task
+def m_ingest_data_into_sales():
+    try:
+        spark = create_session()
+
+       # Define the GCS bucket name
+        GCS_BUCKET_NAME = "meta-morph"
+        today_date = "20250322"
+
+        #GCS path to the sales CSV file for today's date
+        gcs_path = f"gs://meta-morph/{today_date}/sales_{today_date}.csv"
+
+        log.info(f"Reading sales CSV from path: {gcs_path}")
+
+        # Load sales data from GCS
+        sales_df = spark.read.option("header", True).csv(gcs_path)
+
+# Rename columns to match schema standards (uppercase), and select the required columns
+        sales_df = sales_df \
+                    .withColumnRenamed("sale_id", "SALE_ID") \
+                    .withColumnRenamed("customer_id", "CUSTOMER_ID") \
+                    .withColumnRenamed("product_id", "PRODUCT_ID") \
+                    .withColumnRenamed("sale_date", "SALE_DATE") \
+                    .withColumnRenamed("quantity", "QUANTITY") \
+                    .withColumnRenamed("discount", "DISCOUNT") \
+                    .withColumnRenamed("shipping_cost", "SHIPPING_COST") \
+                    .withColumnRenamed("order_status", "ORDER_STATUS") \
+                    .withColumnRenamed("payment_mode", "PAYMENT_MODE") 
+            
+            
+        sales_df_tgt = sales_df \
+                        .select(
+                            col("SALE_ID"),
+                            col("CUSTOMER_ID"),
+                            col("PRODUCT_ID"),
+                            col("SALE_DATE"),
+                            col("QUANTITY"),
+                            col("DISCOUNT"),
+                            col("SHIPPING_COST"),
+                            col("ORDER_STATUS"),
+                            col("PAYMENT_MODE")
+                        )
+    
+
+        # Check for duplicate SALES_IDs
+        checker = Duplicate_check()
+        checker.has_duplicates(sales_df_tgt, ["SALE_ID"])
+
+        # Load to PostgreSQL: raw.sales
+        load_to_postgres(sales_df_tgt, "raw.sales", "overwrite")
+
+        return "Task for loading sales got completed successfully."
+
+    except Exception as e:
+        logging.error(f"Sales ETL failed: {str(e)}", exc_info=True)
+        raise e
+
+    finally:
+        end_session(spark)

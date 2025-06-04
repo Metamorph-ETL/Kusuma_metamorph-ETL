@@ -6,3 +6,4 @@ logs/
 .venv
 airflow.db
 airflow.cfg
+**/meta-morph-d-eng_pro-view-key.json
