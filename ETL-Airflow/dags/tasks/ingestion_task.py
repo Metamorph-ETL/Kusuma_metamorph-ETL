@@ -151,7 +151,7 @@ def m_ingest_data_into_sales():
 
        # Define the GCS bucket name
         GCS_BUCKET_NAME = "meta-morph"
-        today_date= "20250322"
+        today_date = "20250322"
 
         #GCS path to the sales CSV file for today's date
         gcs_path = f"gs://meta-morph/{today_date}/sales_{today_date}.csv"
@@ -162,7 +162,7 @@ def m_ingest_data_into_sales():
         sales_df = spark.read.option("header", True).csv(gcs_path)
 
 # Rename columns to match schema standards (uppercase), and select the required columns
-        sales_df=sales_df \
+        sales_df = sales_df \
                     .withColumnRenamed("sale_id", "SALE_ID") \
                     .withColumnRenamed("customer_id", "CUSTOMER_ID") \
                     .withColumnRenamed("product_id", "PRODUCT_ID") \
@@ -174,7 +174,7 @@ def m_ingest_data_into_sales():
                     .withColumnRenamed("payment_mode", "PAYMENT_MODE") 
             
             
-        sales_df_tgt=sales_df \
+        sales_df_tgt = sales_df \
                         .select(
                             col("SALE_ID"),
                             col("CUSTOMER_ID"),
