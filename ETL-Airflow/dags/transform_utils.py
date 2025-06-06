@@ -9,17 +9,25 @@ from pyspark.sql.functions import col, count
 log = logging.getLogger("etl_logger")
 log.setLevel(logging.INFO)
 
-#create and configure Spark session
 def create_session():
     log.info("Initialising the spark Session")
+    
     spark = SparkSession.builder.appName("GCS_to_Postgres") \
-        .config("spark.jars", "/usr/local/airflow/jars/postgresql-42.7.1.jar,/usr/local/airflow/jars/gcs-connector-hadoop3-latest.jar") \
-        .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
-        .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS") \
-        .getOrCreate()
-    spark._jsc.hadoopConfiguration().set( "google.cloud.auth.service.account.json.keyfile","/usr/local/airflow/jars/meta-morph-d-eng-pro-view-key.json"
-)
+    .config("spark.jars", "/usr/local/airflow/jars/postgresql-42.7.1.jar,/usr/local/airflow/jars/gcs-connector-hadoop3-latest.jar") \
+    .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
+    .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS") \
+    .getOrCreate()
+
+
+    spark._jsc.hadoopConfiguration().set(
+    "google.cloud.auth.service.account.enable", "true"
+    )
+    spark._jsc.hadoopConfiguration().set(
+    "google.cloud.auth.service.account.json.keyfile",
+    "/usr/local/airflow/jars/meta-morph-d-eng-pro-view-key.json"
+    )
        
+    
     log.info("spark session created")
     return spark
 
@@ -83,10 +91,6 @@ class Duplicate_check:
             raise DuplicateException(f"Found duplicates in columns: {primary_key_list}")
         log.info("No duplicates found")
 
-def end_session(spark):
-        log.info("Stopping Spark session...")
-        spark.stop()
-        log.info("Spark session stopped.")
     
 def load_to_postgres(data_frame, table_name, mode="overwrite"):
     log.info(f"Loading data into PostgreSQL table: {table_name}") 
