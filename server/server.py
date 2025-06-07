@@ -87,7 +87,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.get("/v1/products")
 def get_products():
-    blob = get_latest_file_from_gcs("product")
+    blob = get_latest_file_from_gcs("product_new")
     df = read_csv_from_gcs(blob)
     return {"status": 200, "data": df.to_dict(orient="records")}
 
