@@ -94,10 +94,10 @@ class Duplicate_check:
     
 def load_to_postgres(data_frame, table_name, mode="overwrite"):
     log.info(f"Loading data into PostgreSQL table: {table_name}") 
-    df = data_frame.write.format("jdbc")\
+    data_frame.write.format("jdbc")\
             .option("url", "jdbc:postgresql://host.docker.internal:5432/meta_morph") \
             .option("driver", "org.postgresql.Driver") \
-            .option("dbtable", f"{table_name}") \
+            .option("dbtable", f'"{table_name}"') \
             .option("user", "postgres") \
             .option("password", PG_PWD) \
             .mode(mode) \
@@ -111,3 +111,19 @@ def end_session(spark):
         log.info("Stopping Spark session...")
         spark.stop()
         log.info("Spark session stopped.")
+
+def read_from_postgres(spark, table_name):
+    jdbc_url = "jdbc:postgresql://host.docker.internal:5432/meta_morph"
+    properties = {
+        "user": "postgres",
+        "password": PG_PWD,
+        "driver": "org.postgresql.Driver"
+    }
+    log.info(f"Reading table {table_name} from PostgreSQL")
+    df = spark.read.jdbc(
+        url=jdbc_url,
+        table=table_name,
+        properties=properties
+    )
+    log.info(f"Read {df.count()} records from {table_name}")
+    return df        
