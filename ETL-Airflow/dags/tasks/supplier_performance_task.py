@@ -2,7 +2,7 @@ from airflow.decorators import task
 from transform_utils import create_session, load_to_postgres, Duplicate_check, end_session, log, read_from_postgres
 from pyspark.sql.functions import sum, col, countDistinct, rank, current_date, when, lit
 from pyspark.sql.window import Window
-from pyspark.sql.functions import row_number
+from pyspark.sql.functions import row_number,StringType
 from airflow.exceptions import AirflowException
 
 @task (task_id="m_load_suppliers_perfomance")
@@ -67,10 +67,7 @@ def m_load_suppliers_perfomance():
                                          on="SUPPLIER_ID",
                                          how="right"
                                     )\
-                                    .withColumn(  # Must come before select so REVENUE is kept
-                                        "REVENUE", 
-                                        col("QUANTITY") * col("SELLING_PRICE")
-                                    )\
+                                    .withColumn( "REVENUE", col("QUANTITY") * col("SELLING_PRICE"))\
                                     .select(
                                         "PRODUCT_ID",
                                         "PRODUCT_NAME",
@@ -96,6 +93,7 @@ def m_load_suppliers_perfomance():
         # Processing Node : RNK_Suppliers - Ranks suppliers per supplier based on revenue
         RNK_Suppliers = Window.partitionBy("SUPPLIER_ID")\
                            .orderBy(col("REVENUE").desc(), col("PRODUCT_NAME"))
+        
         # Processing Node : Top_Selling_Product_df - Filters to get the top selling product per supplier
         Top_Product_df = JNR_Products_Suppliers\
                                     .withColumn("row_num", row_number()
@@ -139,7 +137,7 @@ def m_load_suppliers_perfomance():
                                                         "TOTAL_PRODUCTS_SOLD": 0,
                                                         "TOTAL_STOCK_SOLD": 0
                                                     })                                     
-        log.info("Data Frame : 'Shortcut_To_Supplier_Performance_Tgt' is built")
+        log.info("Data Frame : 'Shortcut_To_Supplier_Performance_Tgt' is built")         
 
         # Check for duplicates before load
         checker = Duplicate_check()
