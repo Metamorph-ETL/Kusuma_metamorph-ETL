@@ -89,8 +89,7 @@ def m_load_suppliers_performance():
                                     sum("QUANTITY").alias("TOTAL_STOCK_SOLD"),
                                     countDistinct("PRODUCT_ID").alias("TOTAL_PRODUCTS_SOLD")
                                 )
-        log.info("Data Frame : 'AGG_TRANS_Product' is built")  
-        print(AGG_TRANS_Supplier_Product.columns)   
+        log.info("Data Frame : 'AGG_TRANS_Product' is built")     
 
         window_spec = Window.partitionBy("SUPPLIER_ID").orderBy(col("REVENUE").desc(), col("PRODUCT_NAME"))
 
@@ -137,7 +136,7 @@ def m_load_suppliers_performance():
                                                     "TOTAL_STOCK_SOLD": 0
                                                 })
         log.info("Data Frame : 'Shortcut_To_Supplier_Performance_Tgt' is built")
-        
+
         # Check for duplicates before load
         checker = Duplicate_check()
         checker.has_duplicates(Shortcut_To_Supplier_Performance_Tgt, ["SUPPLIER_ID", "DAY_DT"])
