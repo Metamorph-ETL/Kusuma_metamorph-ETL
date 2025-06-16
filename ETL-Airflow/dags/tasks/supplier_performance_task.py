@@ -13,27 +13,27 @@ def m_load_suppliers_performance():
         # Processing Node : SQ_Shortcut_To_Sales - Reads data from 'raw.sales' table
         SQ_Shortcut_To_Sales = read_from_postgres(spark, "raw.sales")\
                                 .select(
-                                    "PRODUCT_ID",
-                                    "QUANTITY",
-                                    "ORDER_STATUS"
+                                    col("PRODUCT_ID"),
+                                    col("QUANTITY"),
+                                    col("ORDER_STATUS")
                                 )
         log.info("Data Frame : 'SQ_Shortcut_To_Sales' is built")
 
         # Processing Node : SQ_Shortcut_To_Products - Reads data from 'raw.products' table
         SQ_Shortcut_To_Products = read_from_postgres(spark, "raw.products")\
                                         .select(
-                                            "PRODUCT_ID",
-                                            "SUPPLIER_ID",
-                                            "PRODUCT_NAME",
-                                            "SELLING_PRICE"
+                                            col("PRODUCT_ID"),
+                                            col("SUPPLIER_ID"),
+                                            col("PRODUCT_NAME"),
+                                            col("SELLING_PRICE")
                                         )
         log.info("Data Frame : 'SQ_Shortcut_To_Products' is built")
 
         # Processing Node : SQ_Shortcut_To_Suppliers - Reads data from 'raw.suppliers' table
         SQ_Shortcut_To_Suppliers = read_from_postgres(spark, "raw.suppliers")\
                                         .select(
-                                            "SUPPLIER_ID",
-                                            "SUPPLIER_NAME"
+                                            col("SUPPLIER_ID"),
+                                            col("SUPPLIER_NAME")
                                         )
         log.info("Data Frame : 'SQ_Shortcut_To_Suppliers' is built")
 
@@ -128,6 +128,11 @@ def m_load_suppliers_performance():
                                         "agg_TOTAL_PRODUCTS_SOLD": 0,
                                         "agg_TOTAL_STOCK_SOLD": 0
                                     })
+        # Processing Node : Rename back to match target database schema
+        Supplier_Performance = Supplier_Performance\
+            .withColumnRenamed("agg_TOTAL_REVENUE", "TOTAL_REVENUE")\
+            .withColumnRenamed("agg_TOTAL_PRODUCTS_SOLD", "TOTAL_PRODUCTS_SOLD")\
+            .withColumnRenamed("agg_TOTAL_STOCK_SOLD", "TOTAL_STOCK_SOLD")
 
         # Processing Node : 'Shortcut_To_Supplier_Performance_Tgt' - Filtered dataset for target table
         Shortcut_To_Supplier_Performance_Tgt = Supplier_Performance\
@@ -135,9 +140,9 @@ def m_load_suppliers_performance():
                                                     col("DAY_DT"),
                                                     col("SUPPLIER_ID"),
                                                     col("SUPPLIER_NAME"),
-                                                    col("agg_TOTAL_REVENUE").alias("TOTAL_REVENUE"),
-                                                    col("agg_TOTAL_PRODUCTS_SOLD").alias("TOTAL_PRODUCTS_SOLD"),
-                                                    col("agg_TOTAL_STOCK_SOLD").alias("TOTAL_STOCK_SOLD")
+                                                    col("TOTAL_REVENUE"),
+                                                    col("TOTAL_PRODUCTS_SOLD"),
+                                                    col("TOTAL_STOCK_SOLD")
                                                 )
         log.info("Data Frame : 'Shortcut_To_Supplier_Performance_Tgt' is built")
 
