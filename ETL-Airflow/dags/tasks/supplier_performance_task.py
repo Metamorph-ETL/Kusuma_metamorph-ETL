@@ -1,12 +1,12 @@
 from airflow.decorators import task
 from transform_utils import create_session, load_to_postgres, Duplicate_check, end_session, log, read_from_postgres
-from pyspark.sql.functions import sum, col, countDistinct, rank, current_date, when, lit
+from pyspark.sql.functions import sum, col, countDistinct, rank, current_date, when, StringType, lit
 from pyspark.sql.window import Window
 from pyspark.sql.functions import row_number
 from airflow.exceptions import AirflowException
 
-@task(task_id="m_load_suppliers_perfomance")
-def m_load_suppliers_perfomance():
+@task(task_id="m_load_suppliers_performance")
+def m_load_suppliers_performance():
     try:
         spark = create_session()
 
@@ -60,7 +60,7 @@ def m_load_suppliers_perfomance():
                                 )
         log.info("Data Frame : 'JNR_Sales_Products' is built")
 
-        # Processing Node : JNR_Sales_Suppliers  - Reads data from JNR_Sales_Products and 'raw.suppliers' tables
+        # Processing Node : JNR_Products_Suppliers  - Reads data from JNR_Sales_Products and 'raw.suppliers' tables
         JNR_Products_Suppliers = JNR_Sales_Products\
                                     .join(
                                         SQ_Shortcut_To_Suppliers,
@@ -81,29 +81,23 @@ def m_load_suppliers_perfomance():
                                     )
         log.info("Data Frame : 'JNR_Products_Suppliers' is built")
 
-        # Processing Node : AGG_TRANS_Product_Level - Aggregates data at the product level per supplier
-        AGG_TRANS_Product = JNR_Products_Suppliers\
+        # Processing Node : AGG_TRANS_Supplier_Product - Aggregates data at the product level per supplier
+        AGG_TRANS_Supplier_Product = JNR_Products_Suppliers\
                                 .groupBy("SUPPLIER_ID")\
                                 .agg(
-                                    sum("REVENUE").alias("agg_total_revenue"),
-                                    sum("QUANTITY").alias("agg_total_quantity"),
+                                    sum("REVENUE").alias("TOTAL_REVENUE"),
+                                    sum("QUANTITY").alias("TOTAL_STOCK_SOLD"),
                                     countDistinct("PRODUCT_ID").alias("TOTAL_PRODUCTS_SOLD")
                                 )
-        log.info("Data Frame : 'AGG_TRANS_Product' is built")
+        log.info("Data Frame : 'AGG_TRANS_Product' is built")  
+        print(AGG_TRANS_Supplier_Product.columns)   
 
-        # Processing Node : RNK_Suppliers - Ranks suppliers per supplier based on revenue
-        Product_Revenue_DF = JNR_Products_Suppliers\
-                                .groupBy("SUPPLIER_ID", "PRODUCT_NAME")\
-                                .agg(
-                                    sum("REVENUE").alias("PRODUCT_REVENUE")
-                                )
+        window_spec = Window.partitionBy("SUPPLIER_ID").orderBy(col("REVENUE").desc(), col("PRODUCT_NAME"))
 
-        supplier_window = Window.partitionBy("SUPPLIER_ID").orderBy(col("PRODUCT_REVENUE").desc())
-
-        # Processing Node : Top_Selling_Product_df - Filters to get the top selling product per supplier
-        Top_Product_df = Product_Revenue_DF\
-                            .withColumn("row_num", row_number().over(supplier_window))\
-                            .filter(col("row_num") == 1)\
+        #Processing Node : Top_Product_df - Filters to get the top selling product per supplier
+        Top_Product_df = JNR_Products_Suppliers\
+                            .withColumn("rank", row_number().over(window_spec))\
+                            .filter(col("rank") == 1)\
                             .select(
                                 "SUPPLIER_ID",
                                 col("PRODUCT_NAME").alias("TOP_SELLING_PRODUCT")
@@ -113,7 +107,7 @@ def m_load_suppliers_perfomance():
         # Processing Node : 'Shortcut_To_Supplier_Performance_Tgt' - Filtered dataset for target table
         Shortcut_To_Supplier_Performance_Tgt = SQ_Shortcut_To_Suppliers\
                                                 .join(
-                                                    AGG_TRANS_Product,
+                                                    AGG_TRANS_Supplier_Product,
                                                     on="SUPPLIER_ID",
                                                     how="left"
                                                 )\
@@ -123,27 +117,27 @@ def m_load_suppliers_perfomance():
                                                     how="left"
                                                 )\
                                                 .withColumn(
-                                                    "DAY_DT", current_date()
-                                                )\
-                                                .select(
-                                                    col("DAY_DT").alias("day_dt"),
-                                                    col("SUPPLIER_ID").alias("supplier_id"),
-                                                    col("SUPPLIER_NAME").alias("supplier_name"),
-                                                    col("agg_total_revenue").alias("total_revenue"),
-                                                    col("TOTAL_PRODUCTS_SOLD").alias("total_products_sold"),
-                                                    col("agg_total_quantity").alias("total_stock_sold"),
+                                                    "TOP_SELLING_PRODUCT",
                                                     when(col("TOP_SELLING_PRODUCT").isNull(), lit("No sales"))
                                                     .otherwise(col("TOP_SELLING_PRODUCT"))
-                                                    .cast("string")
-                                                    .alias("top_selling_product")
+                                                    .cast(StringType())
                                                 )\
-                                                .fillna({
+                                                .withColumn("DAY_DT", current_date()) \
+                                                .select(
+                                                    col("DAY_DT"),
+                                                    col("SUPPLIER_ID"),
+                                                    col("SUPPLIER_NAME"),
+                                                    col("TOTAL_REVENUE"),
+                                                    col("TOTAL_PRODUCTS_SOLD"),
+                                                    col("TOTAL_STOCK_SOLD")
+                                                )\
+                                                   .fillna({
                                                     "TOTAL_REVENUE": 0,
                                                     "TOTAL_PRODUCTS_SOLD": 0,
                                                     "TOTAL_STOCK_SOLD": 0
                                                 })
         log.info("Data Frame : 'Shortcut_To_Supplier_Performance_Tgt' is built")
-
+        
         # Check for duplicates before load
         checker = Duplicate_check()
         checker.has_duplicates(Shortcut_To_Supplier_Performance_Tgt, ["SUPPLIER_ID", "DAY_DT"])

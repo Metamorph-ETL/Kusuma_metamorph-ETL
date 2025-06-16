@@ -94,10 +94,10 @@ class Duplicate_check:
     
 def load_to_postgres(data_frame, table_name, mode="overwrite"):
     log.info(f"Loading data into PostgreSQL table: {table_name}") 
-    data_frame.write.format("jdbc")\
+    df = data_frame.write.format("jdbc")\
             .option("url", "jdbc:postgresql://host.docker.internal:5432/meta_morph") \
             .option("driver", "org.postgresql.Driver") \
-            .option("dbtable", f'"{table_name}"') \
+            .option("dbtable", f"{table_name}") \
             .option("user", "postgres") \
             .option("password", PG_PWD) \
             .mode(mode) \

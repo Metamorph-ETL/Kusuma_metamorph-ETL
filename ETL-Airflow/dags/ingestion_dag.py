@@ -6,7 +6,7 @@ from tasks.ingestion_task import (
     m_ingest_data_into_customers,
     m_ingest_data_into_sales
     )
-from tasks.supplier_performance_task import m_load_suppliers_perfomance
+from tasks.supplier_performance_task import m_load_suppliers_performance
 
 
 @dag(
@@ -21,10 +21,10 @@ def etl_process():
    product_task = m_ingest_data_into_products()
    customer_task = m_ingest_data_into_customers()
    sales_task = m_ingest_data_into_sales()
-   supplier_perf_task = m_load_suppliers_perfomance()
+   supplier_performance_task = m_load_suppliers_performance()
 
 
-   supplier_task >> product_task >> customer_task >> sales_task >> supplier_perf_task
+   supplier_task >> product_task >> customer_task >> sales_task >> supplier_performance_task
 
    
 dag_instance = etl_process()
