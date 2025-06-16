@@ -85,16 +85,16 @@ def m_load_suppliers_performance():
         AGG_TRANS_Supplier_Product = JNR_Products_Suppliers\
                                 .groupBy("SUPPLIER_ID")\
                                 .agg(
-                                    sum("REVENUE").alias("TOTAL_REVENUE"),
-                                    sum("QUANTITY").alias("TOTAL_STOCK_SOLD"),
-                                    countDistinct("PRODUCT_ID").alias("TOTAL_PRODUCTS_SOLD")
+                                    sum("REVENUE").alias("agg_TOTAL_REVENUE"),
+                                    sum("QUANTITY").alias("agg_TOTAL_STOCK_SOLD"),
+                                    countDistinct("PRODUCT_ID").alias("agg_TOTAL_PRODUCTS_SOLD")
                                 )
         log.info("Data Frame : 'AGG_TRANS_Product' is built")     
 
         window_spec = Window.partitionBy("SUPPLIER_ID").orderBy(col("REVENUE").desc(), col("PRODUCT_NAME"))
 
         #Processing Node : Top_Product_df - Filters to get the top selling product per supplier
-        Top_Product_df = JNR_Products_Suppliers\
+        Top_Product = JNR_Products_Suppliers\
                             .withColumn("rank", row_number().over(window_spec))\
                             .filter(col("rank") == 1)\
                             .select(
@@ -103,38 +103,42 @@ def m_load_suppliers_performance():
                             )
         log.info("Data Frame : 'Top_Product_df' is built")
 
+        Supplier_Performance = SQ_Shortcut_To_Suppliers\
+                                    .join(
+                                        AGG_TRANS_Supplier_Product,
+                                        on="SUPPLIER_ID",
+                                        how="left"
+                                    )\
+                                    .join(
+                                        Top_Product,
+                                        on="SUPPLIER_ID",
+                                        how="left"
+                                    )\
+                                    .withColumn(
+                                        "TOP_SELLING_PRODUCT",
+                                        when(col("TOP_SELLING_PRODUCT").isNull(), lit("No sales"))
+                                        .otherwise(col("TOP_SELLING_PRODUCT"))
+                                        .cast(StringType())
+                                    )\
+                                    .withColumn(
+                                        "DAY_DT", current_date()
+                                    )\
+                                    .fillna({
+                                        "agg_TOTAL_REVENUE": 0,
+                                        "agg_TOTAL_PRODUCTS_SOLD": 0,
+                                        "agg_TOTAL_STOCK_SOLD": 0
+                                    })
+
         # Processing Node : 'Shortcut_To_Supplier_Performance_Tgt' - Filtered dataset for target table
-        Shortcut_To_Supplier_Performance_Tgt = SQ_Shortcut_To_Suppliers\
-                                                .join(
-                                                    AGG_TRANS_Supplier_Product,
-                                                    on="SUPPLIER_ID",
-                                                    how="left"
-                                                )\
-                                                .join(
-                                                    Top_Product_df,
-                                                    on="SUPPLIER_ID",
-                                                    how="left"
-                                                )\
-                                                .withColumn(
-                                                    "TOP_SELLING_PRODUCT",
-                                                    when(col("TOP_SELLING_PRODUCT").isNull(), lit("No sales"))
-                                                    .otherwise(col("TOP_SELLING_PRODUCT"))
-                                                    .cast(StringType())
-                                                )\
-                                                .withColumn("DAY_DT", current_date()) \
+        Shortcut_To_Supplier_Performance_Tgt = Supplier_Performance\
                                                 .select(
                                                     col("DAY_DT"),
                                                     col("SUPPLIER_ID"),
                                                     col("SUPPLIER_NAME"),
-                                                    col("TOTAL_REVENUE"),
-                                                    col("TOTAL_PRODUCTS_SOLD"),
-                                                    col("TOTAL_STOCK_SOLD")
-                                                )\
-                                                   .fillna({
-                                                    "TOTAL_REVENUE": 0,
-                                                    "TOTAL_PRODUCTS_SOLD": 0,
-                                                    "TOTAL_STOCK_SOLD": 0
-                                                })
+                                                    col("agg_TOTAL_REVENUE").alias("TOTAL_REVENUE"),
+                                                    col("agg_TOTAL_PRODUCTS_SOLD").alias("TOTAL_PRODUCTS_SOLD"),
+                                                    col("agg_TOTAL_STOCK_SOLD").alias("TOTAL_STOCK_SOLD")
+                                                )
         log.info("Data Frame : 'Shortcut_To_Supplier_Performance_Tgt' is built")
 
         # Check for duplicates before load
@@ -147,7 +151,7 @@ def m_load_suppliers_performance():
         return "Supplier performance task completed successfully."
 
     except Exception as e:
-        log.error(f"Supplier performance calculation failed: {str(e)}", exc_info=True)
+        log.error(f"Supplier performance task failed: {str(e)}", exc_info=True)
         raise AirflowException("Supplier_performance ETL failed")
 
     finally:
