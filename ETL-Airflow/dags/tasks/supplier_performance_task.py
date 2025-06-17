@@ -93,41 +93,49 @@ def m_load_suppliers_performance():
 
         window_spec = Window.partitionBy("SUPPLIER_ID").orderBy(col("REVENUE").desc(), col("PRODUCT_NAME"))
 
-        #Processing Node : Top_Product_df - Filters to get the top selling product per supplier
+        #Processing Node : Top_Product - Filters to get the top selling product per supplier
         Top_Product = JNR_Products_Suppliers\
                             .withColumn("rank", row_number().over(window_spec))\
                             .filter(col("rank") == 1)\
                             .select(
-                                "SUPPLIER_ID",
+                                col("SUPPLIER_ID"),
                                 col("PRODUCT_NAME").alias("TOP_SELLING_PRODUCT")
                             )
-        log.info("Data Frame : 'Top_Product_df' is built")
+        log.info("Data Frame : 'Top_Product' is built")
 
-        Supplier_Performance = SQ_Shortcut_To_Suppliers\
+        # Processing Node : Supplier_with_Aggregates - Adds aggregate sales info per supplier
+        Supplier_with_Aggregates = SQ_Shortcut_To_Suppliers\
                                     .join(
                                         AGG_TRANS_Supplier_Product,
                                         on="SUPPLIER_ID",
                                         how="left"
                                     )\
-                                    .join(
-                                        Top_Product,
-                                        on="SUPPLIER_ID",
-                                        how="left"
-                                    )\
-                                    .withColumn(
-                                        "TOP_SELLING_PRODUCT",
-                                        when(col("TOP_SELLING_PRODUCT").isNull(), lit("No sales"))
-                                        .otherwise(col("TOP_SELLING_PRODUCT"))
-                                        .cast(StringType())
-                                    )\
-                                    .withColumn(
-                                        "DAY_DT", current_date()
-                                    )\
-                                    .fillna({
-                                        "agg_TOTAL_REVENUE": 0,
-                                        "agg_TOTAL_PRODUCTS_SOLD": 0,
-                                        "agg_TOTAL_STOCK_SOLD": 0
-                                    })
+                                    
+        # Processing Node : Supplier_with_Top_Product - Adds top-selling product info to suppliers
+        Supplier_with_Top_Product = Supplier_with_Aggregates\
+                                        .join(
+                                            Top_Product,
+                                            on="SUPPLIER_ID",
+                                            how="left"
+                                        )\
+                                        
+        # Processing Node : Supplier_Performance - Adds DAY_DT, fills missing values, replaces nulls in TOP_SELLING_PRODUCT
+        Supplier_Performance = Supplier_with_Top_Product\
+                                        .withColumn(
+                                            "TOP_SELLING_PRODUCT",
+                                            when(col("TOP_SELLING_PRODUCT").isNull(), lit("No sales"))
+                                            .otherwise(col("TOP_SELLING_PRODUCT"))
+                                            .cast(StringType())
+                                        )\
+                                        .withColumn(
+                                            "DAY_DT", current_date()
+                                        )\
+                                        .fillna({
+                                            "agg_TOTAL_REVENUE": 0,
+                                            "agg_TOTAL_PRODUCTS_SOLD": 0,
+                                            "agg_TOTAL_STOCK_SOLD": 0
+                                        })
+
         # Processing Node : Rename back to match target database schema
         Supplier_Performance = Supplier_Performance\
             .withColumnRenamed("agg_TOTAL_REVENUE", "TOTAL_REVENUE")\
