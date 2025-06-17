@@ -110,6 +110,13 @@ def m_load_suppliers_performance():
                                         on="SUPPLIER_ID",
                                         how="left"
                                     )\
+                                    .select(
+                                        SQ_Shortcut_To_Suppliers.SUPPLIER_ID,
+                                        SQ_Shortcut_To_Suppliers.SUPPLIER_NAME,
+                                        AGG_TRANS_Supplier_Product["agg_TOTAL_REVENUE"],
+                                        AGG_TRANS_Supplier_Product["agg_TOTAL_PRODUCTS_SOLD"],
+                                        AGG_TRANS_Supplier_Product["agg_TOTAL_STOCK_SOLD"]
+                                    )
                                     
         # Processing Node : Supplier_with_Top_Product - Adds top-selling product info to suppliers
         Supplier_with_Top_Product = Supplier_with_Aggregates\
@@ -118,6 +125,14 @@ def m_load_suppliers_performance():
                                             on="SUPPLIER_ID",
                                             how="left"
                                         )\
+                                        .select(
+                                            Supplier_with_Aggregates.SUPPLIER_ID,
+                                            Supplier_with_Aggregates.SUPPLIER_NAME,
+                                            Supplier_with_Aggregates["agg_TOTAL_REVENUE"],
+                                            Supplier_with_Aggregates["agg_TOTAL_PRODUCTS_SOLD"],
+                                            Supplier_with_Aggregates["agg_TOTAL_STOCK_SOLD"],
+                                            Top_Product.TOP_SELLING_PRODUCT
+                                        )
                                         
         # Processing Node : Supplier_Performance - Adds DAY_DT, fills missing values, replaces nulls in TOP_SELLING_PRODUCT
         Supplier_Performance = Supplier_with_Top_Product\
@@ -142,7 +157,7 @@ def m_load_suppliers_performance():
                                     .withColumnRenamed("agg_TOTAL_PRODUCTS_SOLD", "TOTAL_PRODUCTS_SOLD")\
                                     .withColumnRenamed("agg_TOTAL_STOCK_SOLD", "TOTAL_STOCK_SOLD")
 
-        # Processing Node : 'Shortcut_To_Supplier_Performance_Tgt' - Filtered dataset for target table
+        # Processing Node : 'Shortcut_To_Supplier_Performance_Tgt' - Filtered dataframe for target table
         Shortcut_To_Supplier_Performance_Tgt = Supplier_Performance\
                                                 .select(
                                                     col("DAY_DT"),
