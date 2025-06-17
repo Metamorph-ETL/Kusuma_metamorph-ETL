@@ -83,12 +83,12 @@ def m_load_suppliers_performance():
 
         # Processing Node : AGG_TRANS_Supplier_Product - Aggregates data at the product level per supplier
         AGG_TRANS_Supplier_Product = JNR_Products_Suppliers\
-                                .groupBy("SUPPLIER_ID")\
-                                .agg(
-                                    sum("REVENUE").alias("agg_TOTAL_REVENUE"),
-                                    sum("QUANTITY").alias("agg_TOTAL_STOCK_SOLD"),
-                                    countDistinct("PRODUCT_ID").alias("agg_TOTAL_PRODUCTS_SOLD")
-                                )
+                                        .groupBy("SUPPLIER_ID")\
+                                        .agg(
+                                            sum("REVENUE").alias("agg_TOTAL_REVENUE"),
+                                            sum("QUANTITY").alias("agg_TOTAL_STOCK_SOLD"),
+                                            countDistinct("PRODUCT_ID").alias("agg_TOTAL_PRODUCTS_SOLD")
+                                        )
         log.info("Data Frame : 'AGG_TRANS_Product' is built")     
 
         window_spec = Window.partitionBy("SUPPLIER_ID").orderBy(col("REVENUE").desc(), col("PRODUCT_NAME"))
@@ -136,11 +136,11 @@ def m_load_suppliers_performance():
                                             "agg_TOTAL_STOCK_SOLD": 0
                                         })
 
-        # Processing Node : Rename back to match target database schema
+        # Processing Node : Supplier_Performance - Rename back to match target database schema
         Supplier_Performance = Supplier_Performance\
-            .withColumnRenamed("agg_TOTAL_REVENUE", "TOTAL_REVENUE")\
-            .withColumnRenamed("agg_TOTAL_PRODUCTS_SOLD", "TOTAL_PRODUCTS_SOLD")\
-            .withColumnRenamed("agg_TOTAL_STOCK_SOLD", "TOTAL_STOCK_SOLD")
+                                    .withColumnRenamed("agg_TOTAL_REVENUE", "TOTAL_REVENUE")\
+                                    .withColumnRenamed("agg_TOTAL_PRODUCTS_SOLD", "TOTAL_PRODUCTS_SOLD")\
+                                    .withColumnRenamed("agg_TOTAL_STOCK_SOLD", "TOTAL_STOCK_SOLD")
 
         # Processing Node : 'Shortcut_To_Supplier_Performance_Tgt' - Filtered dataset for target table
         Shortcut_To_Supplier_Performance_Tgt = Supplier_Performance\
