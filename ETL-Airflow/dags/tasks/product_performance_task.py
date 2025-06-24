@@ -12,10 +12,8 @@ def m_load_product_performance():
         SQ_Shortcut_To_sales = read_from_postgres(spark, "raw.sales")\
                                 .select(
                                         col("PRODUCT_ID"),
-                                        col("QUANTITY"),
-                                        col("ORDER_STATUS")
-                                    )\
-                                    .filter(col("ORDER_STATUS") != "Cancelled")                            
+                                        col("QUANTITY")
+                                )
         log.info("Data Frame : 'SQ_Shortcut_To_sales' is built")
 
        # Processing Node : SQ_Shortcut_To_Products - Reads data from 'raw.products' table
@@ -28,17 +26,16 @@ def m_load_product_performance():
                                             col("STOCK_QUANTITY"), 
                                             col("REORDER_LEVEL"), 
                                             col("CATEGORY")
-                                            )
+                                    )
         log.info("Data Frame : 'SQ_Shortcut_To_Products' is built")
 
 
          # Processing Node : FIL_Cancelled_Sales - Filters out cancelled orders
         FIL_Cancelled_Sales = SQ_Shortcut_To_sales\
-                                    .select(
-                                        col("PRODUCT_ID"), 
-                                        col("QUANTITY"), 
-                                        col("ORDER_STATUS")
-                                    )
+                                            .filter(
+                                                col("ORDER_STATUS") != "Cancelled"
+                                            )
+                                
         log.info("Data Frame : 'FIL_Cancelled_Sales' is built")
 
         # Processing Node : JNR_Sales_Products - Joins sales data with product data on PRODUCT_ID
@@ -72,7 +69,7 @@ def m_load_product_performance():
                                             col("REORDER_LEVEL")
                                         )\
                                         .agg(
-                                            sum("QUANTITY").cast("int").alias("agg_QUANTITY_SOLD"),
+                                            sum("QUANTITY").alias("agg_QUANTITY_SOLD"),
                                             sum(col("QUANTITY") * col("SELLING_PRICE")).alias("SALES_AMOUNT"),
                                             sum("TOTAL_SALES_AMOUNT").alias("agg_TOTAL_SALES_AMOUNT"),
                                             avg("SELLING_PRICE").alias("agg_SELLING_PRICE"),
