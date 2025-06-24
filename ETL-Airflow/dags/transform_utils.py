@@ -92,7 +92,7 @@ class Duplicate_check:
         log.info("No duplicates found")
 
     
-def load_to_postgres(data_frame, table_name, mode="overwrite"):
+def load_to_postgres(data_frame, table_name, mode):
     log.info(f"Loading data into PostgreSQL table: {table_name}") 
     df = data_frame.write.format("jdbc")\
             .option("url", "jdbc:postgresql://host.docker.internal:5432/meta_morph") \

@@ -1,8 +1,7 @@
-from pyspark.sql.functions import count,col
+from pyspark.sql.functions import col
 from airflow.decorators import task
 from transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
 import logging
-from datetime import datetime
 
 #create a task that ingests data into raw.suppliers table
 @task
@@ -152,16 +151,16 @@ def m_ingest_data_into_sales():
         spark = create_session()
 
        # Define the GCS bucket name
-        GCS_BUCKET_NAME = "meta-morph"
+        GCS_BUCKET_NAME = "meta-morph-flow"
         today_date = "20250322"
 
         #GCS path to the sales CSV file for today's date
-        gcs_path = f"gs://meta-morph/{today_date}/sales_{today_date}.csv"
+        gcs_path = f"gs://meta-morph-flow/{today_date}/sales_{today_date}.csv"
 
         log.info(f"Reading sales CSV from path: {gcs_path}")
 
         # Load sales data from GCS
-        sales_df = spark.read.option("header", True).csv(gcs_path)
+        sales_df =spark.read.csv(gcs_path, header=True, inferSchema=True)
 
 # Rename columns to match schema standards (uppercase), and select the required columns
         sales_df = sales_df \
