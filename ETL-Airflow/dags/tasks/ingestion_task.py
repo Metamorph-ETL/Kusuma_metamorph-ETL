@@ -1,4 +1,4 @@
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, current_date
 from airflow.decorators import task
 from transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
 import logging
@@ -17,34 +17,51 @@ def m_ingest_data_into_suppliers():
          # Convert extracted JSON data to Spark DataFrame
         suppliers_df = spark.createDataFrame(data)
 
-        # Rename columns
-        suppliers_df=suppliers_df \
+        # Rename columns to match schema standards (uppercase), and select the required columns
+        suppliers_df = suppliers_df \
                             .withColumnRenamed("supplier_id", "SUPPLIER_ID") \
                             .withColumnRenamed("supplier_name", "SUPPLIER_NAME") \
                             .withColumnRenamed("contact_details", "CONTACT_DETAILS") \
                             .withColumnRenamed("region", "REGION")
             
-            
-        suppliers_df_tgt=suppliers_df \
+        suppliers_df_tgt = suppliers_df \
                             .select(
                                 col("SUPPLIER_ID"),
                                 col("SUPPLIER_NAME"),
                                 col("CONTACT_DETAILS"),
                                 col("REGION")
                             )
+
+        # Adding a column "DAY_DT" with the current date to track daily snapshots
+        suppliers_legacy_df = suppliers_df_tgt \
+                               .withColumn("DAY_DT", current_date())
+
+         # Rearranging and selecting final columns for writing to the legacy table
+        suppliers_legacy_df_tgt = suppliers_legacy_df \
+                                    .select(
+                                        col("DAY_DT"),
+                                        col("SUPPLIER_ID"),
+                                        col("SUPPLIER_NAME"),
+                                        col("CONTACT_DETAILS"),
+                                        col("REGION")
+                                    )
             
         # Check for duplicate SUPPLIER_IDs
-        checker=Duplicate_check()
+        checker = Duplicate_check()
         checker.has_duplicates(suppliers_df_tgt, ["SUPPLIER_ID"])    
         
          # Load the cleaned data into the raw.suppliers table
-        load_to_postgres(suppliers_df_tgt, "raw.suppliers", "overwrite")
-        return "Task for loading Suppliers got completed successfully."
+        load_to_postgres(suppliers_df_tgt, "raw.suppliers_pre", "overwrite")
      
+         # Load the cleaned data into the legacy.suppliers table
+        load_to_postgres(suppliers_legacy_df_tgt, "legacy.suppliers", "append")
+
+        return "Task for loading Suppliers got completed successfully."
+
+
     except Exception as e:
         logging.error(f"Suppliers ETL failed: {str(e)}", exc_info=True)
         raise e 
-    
 
     finally:
         end_session(spark)
@@ -63,8 +80,8 @@ def m_ingest_data_into_products():
         # Convert extracted JSON data to Spark DataFrame
         products_df = spark.createDataFrame(data)
 
-         # Rename columns
-        products_df=products_df \
+        # Rename columns to match schema standards (uppercase), and select the required columns
+        products_df = products_df \
                         .withColumnRenamed("product_id", "PRODUCT_ID") \
                         .withColumnRenamed("product_name", "PRODUCT_NAME") \
                         .withColumnRenamed("category", "CATEGORY") \
@@ -74,8 +91,7 @@ def m_ingest_data_into_products():
                         .withColumnRenamed("reorder_level", "REORDER_LEVEL") \
                         .withColumnRenamed("supplier_id", "SUPPLIER_ID")
             
-
-        products_df_tgt=products_df \
+        products_df_tgt = products_df \
                                 .select(
                                     col("PRODUCT_ID"),
                                     col("PRODUCT_NAME"),
@@ -86,13 +102,34 @@ def m_ingest_data_into_products():
                                     col("REORDER_LEVEL"),
                                     col("SUPPLIER_ID")
                                 )
+        
+        # Adding a column "DAY_DT" with the current date to track the daily snapshots
+        products_legacy_df = products_df_tgt \
+                               .withColumn("DAY_DT", current_date())
+
+        # Rearranging and selecting the final columns for writing to the legacy table
+        products_legacy_df_tgt = products_legacy_df \
+                                    .select(
+                                        col("DAY_DT"),
+                                        col("PRODUCT_ID"),
+                                        col("PRODUCT_NAME"),
+                                        col("CATEGORY"),
+                                        col("SELLING_PRICE"),
+                                        col("COST_PRICE"),
+                                        col("STOCK_QUANTITY"),
+                                        col("REORDER_LEVEL"),
+                                        col("SUPPLIER_ID")
+                                    )
 
         # Check for duplicate PRODUCT_IDs
-        checker=Duplicate_check()
+        checker = Duplicate_check()
         checker.has_duplicates(products_df_tgt, ["PRODUCT_ID"])
        
          # Load the cleaned data into the raw.products table
-        load_to_postgres(products_df_tgt, "raw.products", "overwrite")
+        load_to_postgres(products_df_tgt, "raw.products_pre", "overwrite")
+
+         # Load the cleaned data into the legacy.products table
+        load_to_postgres(products_legacy_df_tgt, "legacy.products", "append")
 
         return "Task for loading products got completed successfully."
 
@@ -113,6 +150,7 @@ def m_ingest_data_into_customers():
         data = extractor.extract_data()
         customers_df = spark.createDataFrame(data)
 
+        # Rename columns to match schema standards (uppercase), and select the required columns
         customers_df=customers_df \
                         .withColumnRenamed("customer_id", "CUSTOMER_ID") \
                         .withColumnRenamed("name", "NAME") \
@@ -129,12 +167,31 @@ def m_ingest_data_into_customers():
                                 col("PHONE_NUMBER")
                             )
         
+         # Adding a column "DAY_DT" with the current date to track daily snapshots                   
+        customers_legacy_df = customers_df_tgt \
+                               .withColumn("DAY_DT", current_date())
+        
+        # Rearranging and selecting the final columns for writing to the legacy table          
+        customers_legacy_df_tgt = customers_legacy_df \
+                                    .select(
+                                        col("DAY_DT"),
+                                        col("CUSTOMER_ID"),
+                                        col("NAME"),
+                                        col("CITY"),
+                                        col("EMAIL"),
+                                        col("PHONE_NUMBER")
+                                    )
+        
         # Check for duplicate CUSTOMER_IDs
         checker=Duplicate_check()
-        checker.has_duplicates(customers_df_tgt, ["CUSTOMER_ID"])
+        checker.has_duplicates(customers_legacy_df_tgt, ["CUSTOMER_ID"])
 
          # Load the cleaned data into the raw.customers table
-        load_to_postgres(customers_df_tgt, "raw.customers", "overwrite")
+        load_to_postgres(customers_df_tgt, "raw.customers_pre", "overwrite")
+
+         # Load the cleaned data into the legacy.customers table
+        load_to_postgres(customers_legacy_df_tgt, "legacy.customers", "append")
+
         return "Task for loading customers got completed successfully."
 
     except Exception as e:
@@ -187,14 +244,35 @@ def m_ingest_data_into_sales():
                             col("ORDER_STATUS"),
                             col("PAYMENT_MODE")
                         )
-    
+      # Adding a column "DAY_DT" with the current date to track daily snapshots
+        sales_legacy_df = sales_df_tgt \
+                               .withColumn("DAY_DT", current_date())
+
+        # Rearranging and selecting final columns for writing to the legacy table
+        sales_legacy_df_tgt = sales_legacy_df \
+                                 .select(
+                                     col("DAY_DT"),
+                                     col("SALE_ID"),
+                                     col("CUSTOMER_ID"),
+                                     col("PRODUCT_ID"),
+                                     col("SALE_DATE"),
+                                     col("QUANTITY"),
+                                     col("DISCOUNT"),
+                                     col("SHIPPING_COST"),
+                                     col("ORDER_STATUS"),
+                                     col("PAYMENT_MODE")
+                                 )
 
         # Check for duplicate SALES_IDs
         checker = Duplicate_check()
         checker.has_duplicates(sales_df_tgt, ["SALE_ID"])
 
         # Load to PostgreSQL: raw.sales
-        load_to_postgres(sales_df_tgt, "raw.sales", "overwrite")
+        load_to_postgres(sales_legacy_df_tgt, "raw.sales_pre", "overwrite")
+
+         # Load the cleaned data into the legacy.sales table
+        load_to_postgres(sales_legacy_df_tgt, "legacy.sales", "append")
+
 
         return "Task for loading sales got completed successfully."
 
