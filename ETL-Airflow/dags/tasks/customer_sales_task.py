@@ -88,7 +88,7 @@ def m_load_customer_sales_report():
                                         col("CUSTOMER_NAME"),
                                         col("CITY")
                                     )
-        log.info("Data Frame : 'JNR_Data' is built") 
+        log.info("Data Frame : 'JNR_salesData' is built") 
 
         # Processing Node : Calculate_Metrics - Perform core metric calculations such as SALE_DATE, SALE_AMOUNT and add audit the columns
         Calculate_Metrics = JNR_sales_Data \
