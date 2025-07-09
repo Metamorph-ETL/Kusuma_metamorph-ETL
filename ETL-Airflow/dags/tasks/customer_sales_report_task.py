@@ -4,8 +4,8 @@ from airflow.exceptions import AirflowException
 from pyspark.sql.functions import col, current_date, current_timestamp, month, year, round, when, row_number, current_timestamp, round, percent_rank, date_sub,sum as _sum
 from pyspark.sql.window import Window
 
-@task(task_id="m_load_customer_sales_report")
-def m_load_customer_sales_report():
+@task(task_id="m_load_customer_sales_report_task")
+def m_load_customer_sales_report_task():
     try:
         spark = create_session()
 
@@ -49,12 +49,12 @@ def m_load_customer_sales_report():
         log.info("Data Frame : 'FIL_Sales_Data' is built") 
 
        # Processing Node : JNR_Sales_Products - Joins data from 'FIL_Sales_Data' and 'SQ_Shortcut_To_Products' dataframes
-        JNR_Sales_Products= FIL_Sales_Data\
+        JNR_Sales_Products = FIL_Sales_Data\
                                     .join(
                                         SQ_Shortcut_To_Products,
                                         on="PRODUCT_ID", 
                                         how="left"
-                                        )\
+                                    )\
                                     .select(
                                         col("SALE_ID"),
                                         col("SALE_DATE"),
@@ -74,7 +74,7 @@ def m_load_customer_sales_report():
                                          SQ_Shortcut_To_Customers,
                                          on="CUSTOMER_ID",
                                          how="left"                                     
-                                    ) \
+                                    )\
                                     .select(
                                         col("SALE_ID"),
                                         col("SALE_DATE"),
@@ -87,11 +87,7 @@ def m_load_customer_sales_report():
                                         col("CATEGORY"),
                                         col("CUSTOMER_NAME"),
                                         col("CITY")
-                                    )
-        log.info("Data Frame : 'JNR_sales_Data' is built") 
-
-        # Processing Node : Calculate_Metrics - Perform core metric calculations such as SALE_DATE, SALE_AMOUNT and add audit the columns
-        Calculate_Metrics = JNR_sales_Data \
+                                    )\
                                     .withColumn("DAY_DT", current_date()) \
                                     .withColumn("SALE_DATE", date_sub(current_date(), 1)) \
                                     .withColumn("SALE_MONTH", month(col("SALE_DATE"))) \
@@ -99,13 +95,13 @@ def m_load_customer_sales_report():
                                     .withColumn("PRICE", round(col("SELLING_PRICE"), 2)) \
                                     .withColumn("SALE_AMOUNT", round(col("QUANTITY") * col("SELLING_PRICE") * (1 - col("DISCOUNT")/100), 2)) \
                                     .withColumn("LOAD_TSTMP", current_timestamp())
-        log.info("Data Frame : 'Calculate_Metrics' is built")
+        log.info("Data Frame : 'JNR_sales_Data' is built") 
 
         # Define a window to rank all rows globally by SALE_AMOUNT in descending order
         window_spec = Window.orderBy(col("SALE_AMOUNT").desc())
                 
         # Processing Node: Loyalty_Tier - Apply percent_rank window function to segment customers by their spending
-        Loyalty_Tier = Calculate_Metrics \
+        EXP_Loyalty_Tier = JNR_sales_Data \
                                 .withColumn("percent_rank", percent_rank()
                                 .over(window_spec)) \
                                 .withColumn("LOYALTY_TIER",
@@ -117,13 +113,13 @@ def m_load_customer_sales_report():
                                                 )
                                                 .otherwise("Bronze")
                                                 )
-        log.info("Data Frame: 'Loyalty_Tier' is built")
+        log.info("Data Frame: 'EXP_Loyalty_Tier' is built")
 
         # Defined a window to rank products per customer by descending "SALE_AMOUNT"
         product_rank_window = Window.partitionBy("CUSTOMER_ID").orderBy(col("SALE_AMOUNT").desc())
         
         # Processing Node: EXP_Top_Performers - Apply row_number over product_rank_window to identify top-selling product per customer
-        EXP_Top_Performers = Loyalty_Tier \
+        EXP_Top_Performers = EXP_Loyalty_Tier \
                                         .withColumn("rn", row_number().over(product_rank_window)) \
                                         .withColumn("TOP_PERFORMER",
                                                      when(
