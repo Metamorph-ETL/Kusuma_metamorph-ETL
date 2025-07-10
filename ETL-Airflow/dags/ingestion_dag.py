@@ -8,6 +8,7 @@ from tasks.ingestion_task import (
     )
 from tasks.supplier_performance_task import m_load_suppliers_performance
 from tasks.product_performance_task import m_load_product_performance
+from tasks.customer_sales_report_task import m_load_customer_sales_report_task
 
 @dag(
     dag_id="api_to_raw_ingestion_pipeline",
@@ -23,9 +24,10 @@ def etl_process():
    sales_task = m_ingest_data_into_sales()
    supplier_performance_task = m_load_suppliers_performance()
    product_performance_task = m_load_product_performance()
+   customer_sales_report_task = m_load_customer_sales_report_task()
 
 
-   [supplier_task >> product_task >> customer_task >> sales_task] >> supplier_performance_task >> product_performance_task
+   [supplier_task >> product_task >> customer_task >> sales_task] >> supplier_performance_task >> product_performance_task >> customer_sales_report_task
 
    
 dag_instance = etl_process()
