@@ -1,6 +1,6 @@
 from pyspark.sql.functions import col, current_date
 from airflow.decorators import task
-from transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
+from tasks.transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
 import logging
 
 #create a task that ingests data into raw.suppliers table
