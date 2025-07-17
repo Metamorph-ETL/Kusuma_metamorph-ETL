@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 import requests
-from secret_key import PG_PWD, USERNAME,PASSWORD
+from tasks.secret_key import PG_PWD, USERNAME,PASSWORD
 import logging
 from airflow.exceptions import AirflowException
 from pyspark.sql.functions import col, count

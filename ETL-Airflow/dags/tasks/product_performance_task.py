@@ -1,5 +1,5 @@
 from airflow.decorators import task
-from transform_utils import create_session, load_to_postgres, Duplicate_check, end_session, log, read_from_postgres
+from tasks.transform_utils import create_session, load_to_postgres, Duplicate_check, end_session, log, read_from_postgres
 from pyspark.sql.functions import sum, col, current_date, when, lit, avg
 from airflow.exceptions import AirflowException
 
