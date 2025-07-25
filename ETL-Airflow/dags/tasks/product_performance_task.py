@@ -8,16 +8,16 @@ def m_load_product_performance():
     try:
         spark = create_session()
 
-        # Processing Node : SQ_Shortcut_To_sales - Reads data from 'raw.sales' table
-        SQ_Shortcut_To_sales = read_from_postgres(spark, "raw.sales")\
+        # Processing Node : SQ_Shortcut_To_sales - Reads data from 'raw.sales_pre' table
+        SQ_Shortcut_To_sales = read_from_postgres(spark, "raw.sales_pre")\
                                 .select(
                                         col("PRODUCT_ID"),
                                         col("QUANTITY")
                                 )
         log.info("Data Frame : 'SQ_Shortcut_To_sales' is built")
 
-       # Processing Node : SQ_Shortcut_To_Products - Reads data from 'raw.products' table
-        SQ_Shortcut_To_Products = read_from_postgres(spark, "raw.products")\
+       # Processing Node : SQ_Shortcut_To_Products - Reads data from 'raw.products_pre' table
+        SQ_Shortcut_To_Products = read_from_postgres(spark, "raw.products_pre")\
                                     .select(
                                             col("PRODUCT_ID"), 
                                             col("PRODUCT_NAME"), 
