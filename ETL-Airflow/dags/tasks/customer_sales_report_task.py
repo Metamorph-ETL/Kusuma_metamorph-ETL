@@ -9,8 +9,8 @@ def m_load_customer_sales_report_task():
     try:
         spark = create_session()
 
-        # Processing Node : SQ_Shortcut_To_Sales - Reads data from 'raw.sales' table
-        SQ_Shortcut_To_Sales  = read_from_postgres(spark, "raw.sales")\
+        # Processing Node : SQ_Shortcut_To_Sales - Reads data from 'raw.sales_pre' table
+        SQ_Shortcut_To_Sales  = read_from_postgres(spark, "raw.sales_pre")\
                                         .select(
                                             col("SALE_ID"),
                                             col("CUSTOMER_ID"),
@@ -22,8 +22,8 @@ def m_load_customer_sales_report_task():
                                         )
         log.info("Data Frame: 'SQ_Shortcut_To_Sales' is built")
 
-        # Processing Node : SQ_Shortcut_To_Products - Reads data from 'raw.products' table
-        SQ_Shortcut_To_Products =read_from_postgres(spark, "raw.products")\
+        # Processing Node : SQ_Shortcut_To_Products - Reads data from 'raw.products_pre' table
+        SQ_Shortcut_To_Products =read_from_postgres(spark, "raw.products_pre")\
                                         .select(
                                             col("PRODUCT_ID"),
                                             col("PRODUCT_NAME"),
@@ -32,8 +32,8 @@ def m_load_customer_sales_report_task():
                                         )
         log.info("Data Frame: 'SQ_Shortcut_To_Products' is built")
 
-        # Processing Node : SQ_Shortcut_To_Customers - Reads data from 'raw.customers' table
-        SQ_Shortcut_To_Customers = read_from_postgres(spark, "raw.customers") \
+        # Processing Node : SQ_Shortcut_To_Customers - Reads data from 'raw.customers_pre' table
+        SQ_Shortcut_To_Customers = read_from_postgres(spark, "raw.customers_pre") \
                                                 .select(
                                                     col("CUSTOMER_ID"),
                                                     col("NAME").alias("CUSTOMER_NAME"),
@@ -68,7 +68,7 @@ def m_load_customer_sales_report_task():
                                     )
         log.info("Data Frame : 'JNR_Sales_Products' is built") 
 
-        # Processing Node : JNR_Data - Joins data from JNR_Sales_Products and SQ_Shortcut_To_Customers dataframes
+        # Processing Node : Joins JNR_Sales_Products with SQ_Shortcut_To_Customers on CUSTOMER_ID using a left join
         JNR_sales_Data = JNR_Sales_Products \
                                     .join(
                                          SQ_Shortcut_To_Customers,
@@ -100,7 +100,7 @@ def m_load_customer_sales_report_task():
         # Define a window to rank all rows globally by SALE_AMOUNT in descending order
         window_spec = Window.orderBy(col("SALE_AMOUNT").desc())
                 
-        # Processing Node: Loyalty_Tier - Apply percent_rank window function to segment customers by their spending
+        # Processing Node: EXP_Loyalty_Tier - Apply percent_rank window function to segment customers by their spending
         EXP_Loyalty_Tier = JNR_sales_Data \
                                 .withColumn("percent_rank", percent_rank()
                                 .over(window_spec)) \
