@@ -25,7 +25,7 @@ def m_ingest_data_into_suppliers():
          # Convert extracted JSON data to Spark DataFrame
         suppliers_df = spark.createDataFrame(data)
 
-    # Normalize column names: trim, uppercase, and replace spaces with underscores
+        # Normalize column names (supplier_id, supplier_name, contact_details, region): trim, uppercase, and replace spaces with underscores
         suppliers_df = normalize_column_names(suppliers_df)
             
         suppliers_df_tgt = suppliers_df \
@@ -84,7 +84,7 @@ def m_ingest_data_into_products():
         # Convert extracted JSON data to Spark DataFrame
         products_df = spark.createDataFrame(data)
 
-        # Normalize column names: trim, uppercase, and replace spaces with underscores
+        # Normalize column names (product_id, product_name, category, selling_price, cost_price, stock_quantity, reorder_level, supplier_id): trim, uppercase, and replace spaces with underscores
         products_df = normalize_column_names(products_df)
 
         products_df_tgt = products_df \
@@ -146,7 +146,7 @@ def m_ingest_data_into_customers():
         data = extractor.extract_data()
         customers_df = spark.createDataFrame(data)
 
-        # Normalize column names: trim, uppercase, and replace spaces with underscores
+#       Normalize column names (customer_id, name, city, email, phone_number): trim, uppercase, and replace spaces with underscores
         customers_df = normalize_column_names(customers_df)
 
         customers_df_tgt=customers_df \
@@ -211,7 +211,7 @@ def m_ingest_data_into_sales():
         # Load sales data from GCS
         sales_df =spark.read.csv(gcs_path, header=True, inferSchema=True)
 
-        # Rename columns to match schema standards (uppercase), and select the required columns
+        # Normalize column names (sale_id, customer_id, product_id, sale_date, quantity, discount, shipping_cost, order_status, payment_mode): trim, uppercase, and replace spaces with underscores
         sales_df = normalize_column_names(sales_df)
             
         sales_df_tgt = sales_df \

@@ -95,7 +95,7 @@ def m_load_product_performance():
                                     .withColumnRenamed("agg_PROFIT", "PROFIT")\
                                     .withColumnRenamed("Stock_Level_Status", "STOCK_LEVEL_STATUS")
 
-        # Processing Node : Shortcut_To_Supplier_Performance_Tgt - Selects and arranges final columns as per target table schema
+        # Processing Node : Shortcut_To_product_Performance_Tgt - Selects and arranges final columns as per target table schema
         Shortcut_To_product_performance_Tgt = product_performance\
                                                     .select(
                                                         col("PRODUCT_ID"),

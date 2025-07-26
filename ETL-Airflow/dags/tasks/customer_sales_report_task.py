@@ -68,7 +68,7 @@ def m_load_customer_sales_report_task():
                                     )
         log.info("Data Frame : 'JNR_Sales_Products' is built") 
 
-        # Processing Node : JNR_Data - Joins data from JNR_Sales_Products and SQ_Shortcut_To_Customers dataframes
+        # Processing Node : Joins JNR_Sales_Products with SQ_Shortcut_To_Customers on CUSTOMER_ID using a left join
         JNR_sales_Data = JNR_Sales_Products \
                                     .join(
                                          SQ_Shortcut_To_Customers,
@@ -100,7 +100,7 @@ def m_load_customer_sales_report_task():
         # Define a window to rank all rows globally by SALE_AMOUNT in descending order
         window_spec = Window.orderBy(col("SALE_AMOUNT").desc())
                 
-        # Processing Node: Loyalty_Tier - Apply percent_rank window function to segment customers by their spending
+        # Processing Node: EXP_Loyalty_Tier - Apply percent_rank window function to segment customers by their spending
         EXP_Loyalty_Tier = JNR_sales_Data \
                                 .withColumn("percent_rank", percent_rank()
                                 .over(window_spec)) \
