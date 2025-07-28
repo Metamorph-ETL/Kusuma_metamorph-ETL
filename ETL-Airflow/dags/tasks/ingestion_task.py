@@ -26,6 +26,11 @@ def m_ingest_data_into_suppliers():
         suppliers_df = spark.createDataFrame(data)
 
         # Normalize column names (supplier_id, supplier_name, contact_details, region): trim, uppercase, and replace spaces with underscores
+        suppliers_df=suppliers_df \
+                            .withColumnRenamed("supplier_id", "SUPPLIER_ID") \
+                            .withColumnRenamed("supplier_name", "SUPPLIER_NAME") \
+                            .withColumnRenamed("contact_details", "CONTACT_DETAILS") \
+                            .withColumnRenamed("region", "REGION")
         suppliers_df = normalize_column_names(suppliers_df)
             
         suppliers_df_tgt = suppliers_df \
@@ -85,6 +90,15 @@ def m_ingest_data_into_products():
         products_df = spark.createDataFrame(data)
 
         # Normalize column names (product_id, product_name, category, selling_price, cost_price, stock_quantity, reorder_level, supplier_id): trim, uppercase, and replace spaces with underscores
+        products_df=products_df \
+                        .withColumnRenamed("product_id", "PRODUCT_ID") \
+                        .withColumnRenamed("product_name", "PRODUCT_NAME") \
+                        .withColumnRenamed("category", "CATEGORY") \
+                        .withColumnRenamed("selling_price", "SELLING_PRICE") \
+                        .withColumnRenamed( "cost_price","COST_PRICE") \
+                        .withColumnRenamed("stock_quantity", "STOCK_QUANTITY") \
+                        .withColumnRenamed("reorder_level", "REORDER_LEVEL") \
+                        .withColumnRenamed("supplier_id", "SUPPLIER_ID")
         products_df = normalize_column_names(products_df)
 
         products_df_tgt = products_df \
@@ -147,6 +161,12 @@ def m_ingest_data_into_customers():
         customers_df = spark.createDataFrame(data)
 
 #       Normalize column names (customer_id, name, city, email, phone_number): trim, uppercase, and replace spaces with underscores
+        customers_df=customers_df \
+                        .withColumnRenamed("customer_id", "CUSTOMER_ID") \
+                        .withColumnRenamed("name", "NAME") \
+                        .withColumnRenamed("city", "CITY") \
+                        .withColumnRenamed("email", "EMAIL") \
+                        .withColumnRenamed("phone_number", "PHONE_NUMBER")
         customers_df = normalize_column_names(customers_df)
 
         customers_df_tgt=customers_df \
@@ -212,6 +232,16 @@ def m_ingest_data_into_sales():
         sales_df =spark.read.csv(gcs_path, header=True, inferSchema=True)
 
         # Normalize column names (sale_id, customer_id, product_id, sale_date, quantity, discount, shipping_cost, order_status, payment_mode): trim, uppercase, and replace spaces with underscores
+        sales_df = sales_df \
+                    .withColumnRenamed("sale_id", "SALE_ID") \
+                    .withColumnRenamed("customer_id", "CUSTOMER_ID") \
+                    .withColumnRenamed("product_id", "PRODUCT_ID") \
+                    .withColumnRenamed("sale_date", "SALE_DATE") \
+                    .withColumnRenamed("quantity", "QUANTITY") \
+                    .withColumnRenamed("discount", "DISCOUNT") \
+                    .withColumnRenamed("shipping_cost", "SHIPPING_COST") \
+                    .withColumnRenamed("order_status", "ORDER_STATUS") \
+                    .withColumnRenamed("payment_mode", "PAYMENT_MODE")
         sales_df = normalize_column_names(sales_df)
             
         sales_df_tgt = sales_df \
