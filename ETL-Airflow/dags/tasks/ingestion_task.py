@@ -2,6 +2,14 @@ from pyspark.sql.functions import col, current_date
 from airflow.decorators import task
 from tasks.transform_utils import create_session, load_to_postgres, Extractor, log,Duplicate_check,end_session
 import logging
+from datetime import datetime
+
+# Normalize column names: trim, uppercase, replace spaces with underscores
+def normalize_column_names(df):
+    for col_name in df.columns:
+        normalized = col_name.strip().upper().replace(" ", "_")
+        df = df.withColumnRenamed(col_name, normalized)
+    return df
 
 #create a task that ingests data into raw.suppliers table
 @task
@@ -17,12 +25,13 @@ def m_ingest_data_into_suppliers():
          # Convert extracted JSON data to Spark DataFrame
         suppliers_df = spark.createDataFrame(data)
 
-        # Rename columns to match schema standards (uppercase), and select the required columns
-        suppliers_df = suppliers_df \
+        # Normalize column names (supplier_id, supplier_name, contact_details, region): trim, uppercase, and replace spaces with underscores
+        suppliers_df=suppliers_df \
                             .withColumnRenamed("supplier_id", "SUPPLIER_ID") \
                             .withColumnRenamed("supplier_name", "SUPPLIER_NAME") \
                             .withColumnRenamed("contact_details", "CONTACT_DETAILS") \
                             .withColumnRenamed("region", "REGION")
+        suppliers_df = normalize_column_names(suppliers_df)
             
         suppliers_df_tgt = suppliers_df \
                             .select(
@@ -80,8 +89,8 @@ def m_ingest_data_into_products():
         # Convert extracted JSON data to Spark DataFrame
         products_df = spark.createDataFrame(data)
 
-        # Rename columns to match schema standards (uppercase), and select the required columns
-        products_df = products_df \
+        # Normalize column names (product_id, product_name, category, selling_price, cost_price, stock_quantity, reorder_level, supplier_id): trim, uppercase, and replace spaces with underscores
+        products_df=products_df \
                         .withColumnRenamed("product_id", "PRODUCT_ID") \
                         .withColumnRenamed("product_name", "PRODUCT_NAME") \
                         .withColumnRenamed("category", "CATEGORY") \
@@ -90,7 +99,8 @@ def m_ingest_data_into_products():
                         .withColumnRenamed("stock_quantity", "STOCK_QUANTITY") \
                         .withColumnRenamed("reorder_level", "REORDER_LEVEL") \
                         .withColumnRenamed("supplier_id", "SUPPLIER_ID")
-            
+        products_df = normalize_column_names(products_df)
+
         products_df_tgt = products_df \
                                 .select(
                                     col("PRODUCT_ID"),
@@ -103,7 +113,7 @@ def m_ingest_data_into_products():
                                     col("SUPPLIER_ID")
                                 )
         
-        # Adding a column "DAY_DT" with the current date to track the daily snapshots
+        # Normalize column names: trim, uppercase, and replace spaces with underscores
         products_legacy_df = products_df_tgt \
                                .withColumn("DAY_DT", current_date())
 
@@ -150,14 +160,15 @@ def m_ingest_data_into_customers():
         data = extractor.extract_data()
         customers_df = spark.createDataFrame(data)
 
-        # Rename columns to match schema standards (uppercase), and select the required columns
+#       Normalize column names (customer_id, name, city, email, phone_number): trim, uppercase, and replace spaces with underscores
         customers_df=customers_df \
                         .withColumnRenamed("customer_id", "CUSTOMER_ID") \
                         .withColumnRenamed("name", "NAME") \
                         .withColumnRenamed("city", "CITY") \
                         .withColumnRenamed("email", "EMAIL") \
-                        .withColumnRenamed("phone_number", "PHONE_NUMBER") 
-            
+                        .withColumnRenamed("phone_number", "PHONE_NUMBER")
+        customers_df = normalize_column_names(customers_df)
+
         customers_df_tgt=customers_df \
                             .select(
                                 col("CUSTOMER_ID"),
@@ -202,6 +213,7 @@ def m_ingest_data_into_customers():
     finally:
         end_session(spark)
 
+#create a task that ingests data into raw.sales table
 @task
 def m_ingest_data_into_sales():
     try:
@@ -209,17 +221,17 @@ def m_ingest_data_into_sales():
 
        # Define the GCS bucket name
         GCS_BUCKET_NAME = "meta-morph-flow"
-        today_date = "20250322"
+        today_str = datetime.today().strftime("%Y%m%d")
 
         #GCS path to the sales CSV file for today's date
-        gcs_path = f"gs://meta-morph-flow/{today_date}/sales_{today_date}.csv"
+        gcs_path = f"gs://meta-morph-flow/{today_str}/sales_{today_str}.csv"
 
         log.info(f"Reading sales CSV from path: {gcs_path}")
 
         # Load sales data from GCS
         sales_df =spark.read.csv(gcs_path, header=True, inferSchema=True)
 
-# Rename columns to match schema standards (uppercase), and select the required columns
+        # Normalize column names (sale_id, customer_id, product_id, sale_date, quantity, discount, shipping_cost, order_status, payment_mode): trim, uppercase, and replace spaces with underscores
         sales_df = sales_df \
                     .withColumnRenamed("sale_id", "SALE_ID") \
                     .withColumnRenamed("customer_id", "CUSTOMER_ID") \
@@ -229,8 +241,8 @@ def m_ingest_data_into_sales():
                     .withColumnRenamed("discount", "DISCOUNT") \
                     .withColumnRenamed("shipping_cost", "SHIPPING_COST") \
                     .withColumnRenamed("order_status", "ORDER_STATUS") \
-                    .withColumnRenamed("payment_mode", "PAYMENT_MODE") 
-            
+                    .withColumnRenamed("payment_mode", "PAYMENT_MODE")
+        sales_df = normalize_column_names(sales_df)
             
         sales_df_tgt = sales_df \
                         .select(
