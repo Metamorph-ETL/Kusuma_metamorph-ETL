@@ -50,26 +50,27 @@ services:
       - spark-master
     networks:
       - airflow
+
   superset:
-      build:
-        context: .
-        dockerfile: Dockerfile.superset
-      image: superset-custom:latest
-      container_name: superset
-      environment:
-        - SUPERSET_SECRET_KEY=your_secret_key_here
-      ports:
+    build:
+      context: .
+      dockerfile: Dockerfile.superset
+    image: superset-custom:latest
+    container_name: superset
+    environment:
+      - SUPERSET_SECRET_KEY=your_secret_key_here
+    ports:
       - "8088:8088"
-      volumes:
+    volumes:
       - superset_home:/app/superset_home
-      networks:
+    networks:
       - airflow
-      command: >
-        /bin/sh -c "
-        superset db upgrade &&
-        superset fab create-admin --username admin --firstname Admin --lastname User --email admin@superset.com --password admin || true &&
-        superset init &&
-        superset run -h 0.0.0.0 -p 8088"
+    command: >
+      /bin/sh -c "
+      superset db upgrade &&
+      superset fab create-admin --username admin --firstname Admin --lastname User --email admin@superset.com --password admin || true &&
+      superset init &&
+      superset run -h 0.0.0.0 -p 8088"
 
 volumes:
   spark-data:

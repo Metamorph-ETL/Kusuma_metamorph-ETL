@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from os import environ as env
 from my_secrets import PASSWORD
-from datetime import datetime
 
 
 from utils import (
@@ -49,7 +48,7 @@ def get_latest_file_from_gcs(file_keyword: str):
     
         client = get_gcs_client()
         bucket = client.get_bucket(GCS_BUCKET_NAME)
-        today_str = datetime.today().strftime("%Y%m%d")
+        today_str = "20250715"
         blob_path = f"{today_str}/{file_keyword}_{today_str}.csv"
         blob = bucket.blob(blob_path)
 
@@ -58,7 +57,6 @@ def get_latest_file_from_gcs(file_keyword: str):
         return blob
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"GCS access error: {str(e)}")
-
 def read_csv_from_gcs(blob):
     try:
         content = blob.download_as_string()

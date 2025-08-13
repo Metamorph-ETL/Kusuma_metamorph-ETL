@@ -221,7 +221,7 @@ def m_ingest_data_into_sales():
 
        # Define the GCS bucket name
         GCS_BUCKET_NAME = "meta-morph-flow"
-        today_str = datetime.today().strftime("%Y%m%d")
+        today_str = "20250715"
 
         #GCS path to the sales CSV file for today's date
         gcs_path = f"gs://meta-morph-flow/{today_str}/sales_{today_str}.csv"
